@@ -1,0 +1,5 @@
+{
+  "name": "imageedit",
+  "description": "An application that allows users to upload an image and use text prompts to edit it with Gemini. The app provides a simple interface to apply complex edits, download the result, and is designed with a print-on-demand use case in mind.",
+  "requestFramePermissions": []
+}
