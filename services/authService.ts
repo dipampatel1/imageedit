@@ -19,7 +19,7 @@ const saveUsers = (users: any[]) => {
     localStorage.setItem(USERS_DB_KEY, JSON.stringify(users));
 };
 
-// Helper to create a user session
+// Helper to create a user session (for localStorage fallback only)
 const createSession = (user: any) => {
     const sessionData = {
         profile: {
@@ -27,7 +27,8 @@ const createSession = (user: any) => {
             email: user.email,
             imageUrl: `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(user.name)}`,
         },
-        isPro: user.isPro,
+        userId: user.id || user.userId,
+        // Note: isPro/subscription tier should come from user_usage table, not stored here
     };
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(sessionData));
     return sessionData;
@@ -36,9 +37,10 @@ const createSession = (user: any) => {
 
 /**
  * Registers a new user and automatically signs them in.
+ * Note: Subscription tier is stored in user_usage table, not in auth.
  * @throws Will throw an error if the email is already in use.
  */
-export const signUp = async (name: string, email: string, password: string): Promise<{ profile: UserProfile, isPro: boolean }> => {
+export const signUp = async (name: string, email: string, password: string): Promise<{ profile: UserProfile, userId?: string }> => {
     // Try Neon Auth first if configured
     if (isNeonAuthConfigured()) {
         const stackClient = await getStackClient();
@@ -56,13 +58,14 @@ export const signUp = async (name: string, email: string, password: string): Pro
                 });
                 
                 if (user) {
+                    const userId = user.id || user.userId || null;
                     return {
                         profile: {
                             name: user.displayName || user.name || name,
                             email: user.primaryEmail || user.email || email,
                             imageUrl: user.profileImageUrl || user.imageUrl || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(name)}`,
                         },
-                        isPro: false, // Will be determined by subscription
+                        userId: userId || undefined,
                     };
                 }
             } catch (error: any) {
@@ -101,9 +104,10 @@ export const signUp = async (name: string, email: string, password: string): Pro
 
 /**
  * Signs in an existing user.
+ * Note: Subscription tier is stored in user_usage table, not in auth.
  * @throws Will throw an error for invalid credentials.
  */
-export const signIn = async (email: string, password: string): Promise<{ profile: UserProfile, isPro: boolean }> => {
+export const signIn = async (email: string, password: string): Promise<{ profile: UserProfile, userId?: string }> => {
     // Try Neon Auth first if configured
     if (isNeonAuthConfigured()) {
         const stackClient = await getStackClient();
@@ -119,13 +123,14 @@ export const signIn = async (email: string, password: string): Promise<{ profile
                 });
                 
                 if (user) {
+                    const userId = user.id || user.userId || null;
                     return {
                         profile: {
                             name: user.displayName || user.name || email.split('@')[0],
                             email: user.primaryEmail || user.email || email,
                             imageUrl: user.profileImageUrl || user.imageUrl || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(email)}`,
                         },
-                        isPro: false, // Will be determined by subscription
+                        userId: userId || undefined,
                     };
                 }
             } catch (error: any) {
@@ -173,9 +178,11 @@ export const signOut = async (): Promise<void> => {
 
 /**
  * Gets the currently signed-in user.
+ * Note: Subscription tier is NOT stored in auth - it comes from user_usage table.
+ * Use getUserUsage() from usageService to get subscription tier.
  * @returns The user session object or null if not signed in.
  */
-export const getCurrentUser = async (): Promise<{ profile: UserProfile, isPro: boolean } | null> => {
+export const getCurrentUser = async (): Promise<{ profile: UserProfile, userId?: string } | null> => {
     // Try Neon Auth first if configured
     if (isNeonAuthConfigured()) {
         const stackClient = await getStackClient();
@@ -183,13 +190,16 @@ export const getCurrentUser = async (): Promise<{ profile: UserProfile, isPro: b
             try {
                 const user = await stackClient.getUser?.() || await stackClient.user;
                 if (user) {
+                    // Get user ID from Stack Auth
+                    const userId = user.id || user.userId || null;
+                    
                     return {
                         profile: {
                             name: user.displayName || user.name || user.primaryEmail?.split('@')[0] || 'User',
                             email: user.primaryEmail || user.email || '',
                             imageUrl: user.profileImageUrl || user.imageUrl || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(user.primaryEmail || user.email || 'user')}`,
                         },
-                        isPro: false, // Will be determined by subscription
+                        userId: userId || undefined,
                     };
                 }
             } catch (error) {
@@ -200,25 +210,23 @@ export const getCurrentUser = async (): Promise<{ profile: UserProfile, isPro: b
     
     // Fallback to localStorage
     const session = localStorage.getItem(CURRENT_USER_KEY);
-    return session ? JSON.parse(session) : null;
+    if (session) {
+        const parsed = JSON.parse(session);
+        // Remove isPro from session - it should come from database
+        return {
+            profile: parsed.profile,
+            userId: parsed.userId,
+        };
+    }
+    return null;
 };
 
 /**
- * Simulates upgrading the current user to a Pro plan.
+ * Note: Subscription upgrades are handled via Stripe webhooks that update the user_usage table.
+ * This function is kept for backward compatibility but subscription tier should come from database.
  */
 export const upgradeCurrentUserToPro = async (): Promise<void> => {
-    const session = await getCurrentUser();
-    if (!session) return;
-
-    // For Neon Auth, subscription management would be handled via Stripe webhooks
-    // For now, just update localStorage
-    const users = getUsers();
-    const userIndex = users.findIndex(u => u.email === session.profile.email);
-
-    if (userIndex !== -1) {
-        users[userIndex].isPro = true;
-        saveUsers(users);
-        // Update the current session to reflect the change immediately
-        createSession(users[userIndex]);
-    }
+    // Subscription tier is managed in user_usage table via Stripe webhooks
+    // This function is deprecated - use getUserUsage() from usageService instead
+    console.warn('upgradeCurrentUserToPro is deprecated. Subscription tier is managed in user_usage table.');
 };

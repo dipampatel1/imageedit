@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { LogoIcon } from './icons/LogoIcon';
+import { getCompleteUser, type CompleteUser } from '../services/userService';
+import { checkUsageLimit } from '../services/usageService';
 import * as authService from '../services/authService';
-import { getUserUsage, checkUsageLimit } from '../services/usageService';
-import type { UserProfile } from '../types';
 import AuthModal from './AuthModal';
 import UserPortalModal from './UserPortalModal';
 
@@ -12,7 +12,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage = 'home' }) => {
-  const [user, setUser] = useState<{ profile: UserProfile, isPro: boolean } | null>(null);
+  const [user, setUser] = useState<CompleteUser | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showUserPortal, setShowUserPortal] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -33,8 +33,8 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage = 'home'
   }, []);
 
   const loadUser = async () => {
-    const currentUser = await authService.getCurrentUser();
-    setUser(currentUser);
+    const completeUser = await getCompleteUser();
+    setUser(completeUser);
   };
 
   const loadUsage = async () => {
