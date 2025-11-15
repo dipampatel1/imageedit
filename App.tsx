@@ -1,7 +1,10 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { ImageFile, EditedImage } from './types';
 import { editImageWithGemini, generateImageWithGemini } from './services/geminiService';
+import { checkUsageLimit, incrementUsage } from './services/usageService';
+import { saveImage } from './services/imageHistoryService';
+import * as authService from './services/authService';
 import ImageUploader from './components/ImageUploader';
 import EditControls from './components/EditControls';
 import GeneratedImage from './components/GeneratedImage';
@@ -17,6 +20,7 @@ function App() {
   const [aspectRatio, setAspectRatio] = useState<string>('1:1');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [usageWarning, setUsageWarning] = useState<string | null>(null);
 
   const editorRef = useRef<HTMLDivElement>(null);
 
@@ -45,9 +49,27 @@ function App() {
       return;
     }
 
+    // Check if user is authenticated
+    const user = await authService.getCurrentUser();
+    if (!user) {
+      setError('Please sign in to generate images.');
+      return;
+    }
+
+    // Check usage limits
+    const usageCheck = await checkUsageLimit();
+    if (!usageCheck.canGenerate) {
+      setError(`You've reached your monthly limit of ${usageCheck.limit} images. Please upgrade your plan to continue.`);
+      return;
+    }
+
+    if (usageCheck.remaining <= 3 && usageCheck.remaining > 0) {
+      setUsageWarning(`You have ${usageCheck.remaining} images remaining this month.`);
+    }
 
     setIsLoading(true);
     setError(null);
+    setUsageWarning(null);
     setEditedImages([]);
 
     try {
@@ -70,6 +92,9 @@ function App() {
                         base64: base64,
                         mimeType: 'image/png',
                         originalName: originalImages[index].name,
+                        prompt: prompt,
+                        mode: 'edit' as const,
+                        createdAt: new Date().toISOString(),
                     };
                 }
                 return null;
@@ -87,6 +112,9 @@ function App() {
                 base64: base64,
                 mimeType: 'image/png',
                 originalName: prompt.slice(0, 30).replace(/\s/g, '_') || 'generated_image',
+                prompt: prompt,
+                mode: 'generate' as const,
+                createdAt: new Date().toISOString(),
             }];
         }
       }
@@ -96,6 +124,17 @@ function App() {
       }
       
       setEditedImages(successfulResults);
+      
+      // Save images to history and increment usage
+      for (const image of successfulResults) {
+        try {
+          await saveImage(image, prompt, mode);
+          await incrementUsage();
+        } catch (err) {
+          console.error('Error saving image or incrementing usage:', err);
+          // Don't fail the whole operation if saving fails
+        }
+      }
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
@@ -139,6 +178,13 @@ function App() {
                 </div>
             </div>
 
+            {usageWarning && (
+              <div className="mb-4 bg-yellow-900/50 border border-yellow-700 text-yellow-300 p-4 rounded-lg">
+                <p className="font-semibold">Usage Warning</p>
+                <p className="text-sm">{usageWarning}</p>
+              </div>
+            )}
+            
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div className="flex flex-col space-y-6">
                 {mode === 'edit' && (

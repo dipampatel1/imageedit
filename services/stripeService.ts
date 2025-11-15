@@ -21,17 +21,94 @@ declare const Stripe: any;
 const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY || 'pk_test_51HufXuL14f6l1f2PGy5LqI3rwev4tFw24T8X7bQpWIO2i7I8s4q4g9K2f8jG4j1h3n7c9f8d7g6e5d4c'; 
 
 // 2. Your Stripe Price IDs (Stripe Dashboard > Products > Select Product > Pricing)
-//    Example: REACT_APP_STRIPE_PRO_MONTHLY_PRICE_ID=price_...
+// Competitive Pricing Model (Based on Market Research):
+// - Free: 25 images/month (no payment required)
+// - Starter: $9.99/month - 200 images included, $0.10 per image after
+// - Pro: $24.99/month - 1,000 images included, $0.05 per image after
+// - Business: $79/month - 5,000 images included, $0.03 per image after
+// - Annual discount: 17% off (industry standard)
 const STRIPE_PRICE_IDS = {
+    starter: {
+        monthly: process.env.STRIPE_STARTER_MONTHLY_PRICE_ID || 'price_starter_monthly',
+        annual: process.env.STRIPE_STARTER_ANNUAL_PRICE_ID || 'price_starter_annual',
+    },
     pro: {
-        monthly: process.env.STRIPE_PRO_MONTHLY_PRICE_ID || 'price_1HufYJL14f6l1f2P9g8h7f6e',
-        annual: process.env.STRIPE_PRO_ANNUAL_PRICE_ID || 'price_1HufYJL14f6l1f2P5d4c3b2a',
+        monthly: process.env.STRIPE_PRO_MONTHLY_PRICE_ID || 'price_pro_monthly',
+        annual: process.env.STRIPE_PRO_ANNUAL_PRICE_ID || 'price_pro_annual',
     },
     business: {
-        monthly: process.env.STRIPE_BUSINESS_MONTHLY_PRICE_ID || 'price_1HufZKL14f6l1f2P1a2b3c4d',
-        annual: process.env.STRIPE_BUSINESS_ANNUAL_PRICE_ID || 'price_1HufZKL14f6l1f2P9h8g7f6e',
+        monthly: process.env.STRIPE_BUSINESS_MONTHLY_PRICE_ID || 'price_business_monthly',
+        annual: process.env.STRIPE_BUSINESS_ANNUAL_PRICE_ID || 'price_business_annual',
     },
 };
+
+// Competitive pricing configuration based on market research
+// Positioned against: Midjourney ($10-60), Canva ($12.99), Adobe Firefly ($9.99+)
+export const PRICING_TIERS = {
+    free: {
+        name: 'Free',
+        price: 0,
+        imagesIncluded: 25, // Increased from 10 to be more competitive
+        overageRate: null,
+        features: [
+            '25 images per month',
+            'Basic image editing',
+            'Image generation',
+            'Standard resolution (1024x1024)',
+            'Watermark on downloads'
+        ],
+    },
+    starter: {
+        name: 'Starter',
+        price: 9.99,
+        imagesIncluded: 200, // Competitive with Midjourney Basic ($10 for 200)
+        overageRate: 0.10, // $0.10 per additional image
+        features: [
+            '200 images per month',
+            'All editing features',
+            'High resolution (2048x2048)',
+            'No watermarks',
+            'Priority support',
+            'Image history (last 100 images)',
+            'Overage: $0.10/image'
+        ],
+    },
+    pro: {
+        name: 'Pro',
+        price: 24.99, // More affordable than Midjourney Pro ($60)
+        imagesIncluded: 1000,
+        overageRate: 0.05, // $0.05 per additional image
+        features: [
+            '1,000 images per month',
+            'All Starter features',
+            'Ultra-high resolution (4096x4096)',
+            'Unlimited image history',
+            'Commercial license',
+            'API access (limited)',
+            'Priority processing',
+            'Overage: $0.05/image'
+        ],
+    },
+    business: {
+        name: 'Business',
+        price: 79,
+        imagesIncluded: 5000,
+        overageRate: 0.03, // $0.03 per additional image
+        features: [
+            '5,000 images per month',
+            'All Pro features',
+            'Unlimited API access',
+            'White-label options',
+            'Dedicated support',
+            'Custom integrations',
+            'Team collaboration',
+            'Overage: $0.03/image'
+        ],
+    },
+};
+
+// Annual discount (17% - industry standard, better than 15%, less aggressive than 20%)
+export const ANNUAL_DISCOUNT = 0.17; // 17% discount
 // =================================================================================
 
 
@@ -50,22 +127,22 @@ const getStripe = () => {
   return stripeInstance;
 };
 
-export const redirectToCheckout = async (plan: 'pro' | 'business', billingCycle: 'monthly' | 'annual', userEmail: string) => {
+export const redirectToCheckout = async (tier: 'starter' | 'pro' | 'business', billingCycle: 'monthly' | 'annual', userEmail: string) => {
   const stripe = getStripe();
 
   if (!stripe) {
       return;
   }
 
-  const priceId = STRIPE_PRICE_IDS[plan][billingCycle];
+  const priceId = STRIPE_PRICE_IDS[tier][billingCycle];
 
-  if (!priceId || priceId.includes('price_1H')) {
+  if (!priceId || priceId.startsWith('price_')) {
       console.warn(`Using a TEST Stripe Price ID: ${priceId}. Ensure you have set your live Price IDs in your environment variables for production.`);
   }
   
   // These URLs are where Stripe will redirect the user after checkout.
   // The success URL has a parameter that our App.tsx will check for to confirm the purchase.
-  const successUrl = `${window.location.origin}${window.location.pathname}?payment=success`;
+  const successUrl = `${window.location.origin}${window.location.pathname}?payment=success&tier=${tier}`;
   const cancelUrl = `${window.location.origin}${window.location.pathname}`;
 
   const { error } = await stripe.redirectToCheckout({
@@ -74,6 +151,10 @@ export const redirectToCheckout = async (plan: 'pro' | 'business', billingCycle:
     successUrl: successUrl,
     cancelUrl: cancelUrl,
     customerEmail: userEmail, // Pass the user's email to Stripe
+    metadata: {
+      tier: tier,
+      billingCycle: billingCycle,
+    },
   });
 
   if (error) {

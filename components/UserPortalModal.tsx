@@ -1,25 +1,34 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import type { UserProfile } from '../types';
+import { PRICING_TIERS, redirectToCheckout } from '../services/stripeService';
+import ImageGallery from './ImageGallery';
 
 interface UserPortalModalProps {
-    onClose: () => void;
-    userProfile: UserProfile | null;
-    isProUser: boolean;
-    generationsLeft: number;
-    onSignOut: () => void;
-    onManageSubscription: () => void;
+  onClose: () => void;
+  userProfile: UserProfile | null;
+  isProUser: boolean;
+  generationsLeft: number;
+  onSignOut: () => void;
+  onManageSubscription: () => void;
 }
 
 const UserPortalModal: React.FC<UserPortalModalProps> = ({ 
-    onClose, 
-    userProfile, 
-    isProUser, 
-    generationsLeft,
-    onSignOut,
-    onManageSubscription
+  onClose, 
+  userProfile, 
+  isProUser, 
+  generationsLeft,
+  onSignOut,
+  onManageSubscription
 }) => {
-    if (!userProfile) return null;
+  const [showGallery, setShowGallery] = useState(false);
+  const [showPricing, setShowPricing] = useState(false);
+  
+  if (!userProfile) return null;
+
+  const handleUpgrade = async (tier: 'starter' | 'pro' | 'business', billingCycle: 'monthly' | 'annual') => {
+    await redirectToCheckout(tier, billingCycle, userProfile.email);
+  };
 
   return (
     <div 
@@ -58,28 +67,115 @@ const UserPortalModal: React.FC<UserPortalModalProps> = ({
                 </div>
                  <div className="bg-slate-900/50 p-4 rounded-lg">
                     <div className="flex justify-between items-center">
-                        <span className="text-slate-400">Generations Left</span>
-                        <span className="font-semibold text-white">
-                             {isProUser ? 'Unlimited' : generationsLeft}
+                        <span className="text-slate-400">Images Remaining</span>
+                        <span className={`font-semibold ${generationsLeft <= 3 ? 'text-yellow-400' : 'text-white'}`}>
+                             {generationsLeft === Infinity ? '∞' : generationsLeft}
                         </span>
                     </div>
                 </div>
             </div>
             
+            {showPricing && (
+              <div className="mt-6 space-y-4">
+                <h3 className="text-lg font-bold text-white">Upgrade Your Plan</h3>
+                <p className="text-sm text-slate-400 mb-4">Competitive pricing with industry-leading features</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                    <h4 className="font-bold text-white mb-2">{PRICING_TIERS.starter.name}</h4>
+                    <p className="text-2xl font-bold text-cyan-400 mb-2">${PRICING_TIERS.starter.price}/mo</p>
+                    <p className="text-xs text-slate-400 mb-3">or ${(PRICING_TIERS.starter.price * 12 * (1 - 0.17)).toFixed(2)}/year (Save 17%)</p>
+                    <ul className="text-sm text-slate-300 space-y-1 mb-4">
+                      {PRICING_TIERS.starter.features.map((feature, i) => (
+                        <li key={i}>• {feature}</li>
+                      ))}
+                    </ul>
+                    <button
+                      onClick={() => handleUpgrade('starter', 'monthly')}
+                      className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-2 rounded-lg transition-colors"
+                    >
+                      Upgrade to Starter
+                    </button>
+                    <button
+                      onClick={() => handleUpgrade('starter', 'annual')}
+                      className="w-full mt-2 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-2 rounded-lg transition-colors text-sm"
+                    >
+                      Annual (Save 17%)
+                    </button>
+                  </div>
+                  
+                  <div className="bg-slate-900/50 p-4 rounded-lg border border-cyan-500">
+                    <h4 className="font-bold text-white mb-2">{PRICING_TIERS.pro.name}</h4>
+                    <p className="text-2xl font-bold text-cyan-400 mb-2">${PRICING_TIERS.pro.price}/mo</p>
+                    <p className="text-xs text-slate-400 mb-3">or ${(PRICING_TIERS.pro.price * 12 * (1 - 0.17)).toFixed(2)}/year (Save 17%)</p>
+                    <ul className="text-sm text-slate-300 space-y-1 mb-4">
+                      {PRICING_TIERS.pro.features.map((feature, i) => (
+                        <li key={i}>• {feature}</li>
+                      ))}
+                    </ul>
+                    <button
+                      onClick={() => handleUpgrade('pro', 'monthly')}
+                      className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-2 rounded-lg transition-colors"
+                    >
+                      Upgrade to Pro
+                    </button>
+                    <button
+                      onClick={() => handleUpgrade('pro', 'annual')}
+                      className="w-full mt-2 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-2 rounded-lg transition-colors text-sm"
+                    >
+                      Annual (Save 17%)
+                    </button>
+                  </div>
+                  
+                  <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                    <h4 className="font-bold text-white mb-2">{PRICING_TIERS.business.name}</h4>
+                    <p className="text-2xl font-bold text-cyan-400 mb-2">${PRICING_TIERS.business.price}/mo</p>
+                    <p className="text-xs text-slate-400 mb-3">or ${(PRICING_TIERS.business.price * 12 * (1 - 0.17)).toFixed(2)}/year (Save 17%)</p>
+                    <ul className="text-sm text-slate-300 space-y-1 mb-4">
+                      {PRICING_TIERS.business.features.map((feature, i) => (
+                        <li key={i}>• {feature}</li>
+                      ))}
+                    </ul>
+                    <button
+                      onClick={() => handleUpgrade('business', 'monthly')}
+                      className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-2 rounded-lg transition-colors"
+                    >
+                      Upgrade to Business
+                    </button>
+                    <button
+                      onClick={() => handleUpgrade('business', 'annual')}
+                      className="w-full mt-2 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-2 rounded-lg transition-colors text-sm"
+                    >
+                      Annual (Save 17%)
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div className="mt-8 space-y-3">
                  <button 
-                    onClick={onManageSubscription}
+                    onClick={() => setShowGallery(true)}
                     className="w-full text-center bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-4 rounded-lg transition-colors"
                 >
-                    Manage Subscription
+                    View Image Gallery
+                 </button>
+                 <button 
+                    onClick={() => setShowPricing(!showPricing)}
+                    className="w-full text-center bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-4 rounded-lg transition-colors"
+                >
+                    {showPricing ? 'Hide' : 'Upgrade Plan'}
                  </button>
                  <button 
                     onClick={onSignOut}
-                    className="w-full text-center bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-4 rounded-lg transition-colors"
+                    className="w-full text-center bg-red-900/50 hover:bg-red-800/50 text-white font-bold py-3 px-4 rounded-lg transition-colors"
                  >
                     Sign Out
                  </button>
             </div>
+            
+            {showGallery && (
+              <ImageGallery onClose={() => setShowGallery(false)} />
+            )}
         </div>
       </div>
        <style>{`

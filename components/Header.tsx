@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { LogoIcon } from './icons/LogoIcon';
 import * as authService from '../services/authService';
+import { getUserUsage, checkUsageLimit } from '../services/usageService';
 import type { UserProfile } from '../types';
 import AuthModal from './AuthModal';
 import UserPortalModal from './UserPortalModal';
@@ -9,19 +10,38 @@ export const Header: React.FC = () => {
   const [user, setUser] = useState<{ profile: UserProfile, isPro: boolean } | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showUserPortal, setShowUserPortal] = useState(false);
+  const [usage, setUsage] = useState<{ remaining: number; limit: number; tier: string } | null>(null);
 
   useEffect(() => {
     // Load user on mount
     loadUser();
+    loadUsage();
     
     // Listen for auth changes (e.g., after sign in/out)
-    const interval = setInterval(loadUser, 1000);
+    const interval = setInterval(() => {
+      loadUser();
+      loadUsage();
+    }, 2000);
     return () => clearInterval(interval);
   }, []);
 
   const loadUser = async () => {
     const currentUser = await authService.getCurrentUser();
     setUser(currentUser);
+  };
+
+  const loadUsage = async () => {
+    const currentUser = await authService.getCurrentUser();
+    if (currentUser) {
+      const usageCheck = await checkUsageLimit();
+      setUsage({
+        remaining: usageCheck.remaining,
+        limit: usageCheck.limit,
+        tier: usageCheck.tier,
+      });
+    } else {
+      setUsage(null);
+    }
   };
 
   const handleSignOut = async () => {
@@ -43,6 +63,15 @@ export const Header: React.FC = () => {
         <div className="flex items-center gap-4">
           {user ? (
             <>
+              {usage && (
+                <div className="hidden md:flex items-center gap-2 px-3 py-2 bg-slate-800/50 rounded-lg">
+                  <span className="text-xs text-slate-400">Credits:</span>
+                  <span className={`text-sm font-semibold ${usage.remaining <= 3 ? 'text-yellow-400' : 'text-green-400'}`}>
+                    {usage.remaining === Infinity ? '∞' : usage.remaining}
+                  </span>
+                  <span className="text-xs text-slate-500">/ {usage.limit === Infinity ? '∞' : usage.limit}</span>
+                </div>
+              )}
               <div className="flex items-center gap-3">
                 <span className="text-sm text-slate-300 hidden sm:inline">
                   {user.profile.name}
@@ -86,10 +115,13 @@ export const Header: React.FC = () => {
       {/* User Portal Modal */}
       {showUserPortal && user && (
         <UserPortalModal
-          onClose={() => setShowUserPortal(false)}
+          onClose={() => {
+            setShowUserPortal(false);
+            loadUsage(); // Refresh usage after closing
+          }}
           userProfile={user.profile}
           isProUser={user.isPro}
-          generationsLeft={user.isPro ? Infinity : 10} // TODO: Get from usage service
+          generationsLeft={usage?.remaining ?? 0}
           onSignOut={handleSignOut}
           onManageSubscription={() => {
             setShowUserPortal(false);

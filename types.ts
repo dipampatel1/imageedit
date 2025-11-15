@@ -10,6 +10,9 @@ export interface EditedImage {
   base64: string; // Raw base64 data
   mimeType: string; // e.g., 'image/png'
   originalName: string;
+  prompt?: string; // Optional prompt used for generation
+  mode?: 'edit' | 'generate'; // Optional mode
+  createdAt?: string; // Optional creation timestamp
 }
 
 // Fix: Add and export the UserProfile interface to resolve import errors across the application.
