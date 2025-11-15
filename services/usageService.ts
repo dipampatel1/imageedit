@@ -7,6 +7,7 @@ export interface UserUsage {
   user_id: string;
   email: string;
   tier: 'free' | 'starter' | 'pro' | 'business';
+  user_level?: 'user' | 'admin';
   images_generated: number;
   current_period_start: string;
   current_period_end: string;

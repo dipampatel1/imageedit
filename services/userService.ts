@@ -9,7 +9,9 @@ export interface CompleteUser {
   profile: UserProfile;
   userId: string;
   subscriptionTier: 'free' | 'starter' | 'pro' | 'business';
+  userLevel: 'user' | 'admin';
   isPro: boolean; // true if tier is 'pro' or 'business'
+  isAdmin: boolean; // true if user_level is 'admin'
   usage?: UserUsage;
 }
 
@@ -37,16 +39,20 @@ export const getCompleteUser = async (): Promise<CompleteUser | null> => {
     return null;
   }
 
-  // Get subscription tier from user_usage table
+  // Get subscription tier and user level from user_usage table
   const usage = await getUserUsage();
   const subscriptionTier = (usage?.tier || 'free') as 'free' | 'starter' | 'pro' | 'business';
+  const userLevel = (usage?.user_level || 'user') as 'user' | 'admin';
   const isPro = subscriptionTier === 'pro' || subscriptionTier === 'business';
+  const isAdmin = userLevel === 'admin';
 
   return {
     profile: authUser.profile,
     userId,
     subscriptionTier,
+    userLevel,
     isPro,
+    isAdmin,
     usage: usage || undefined,
   };
 };

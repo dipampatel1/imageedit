@@ -50,8 +50,8 @@ export const handler: Handler = async (event) => {
     if (currentUsage.length === 0) {
       // Create new usage record
       await sql`
-        INSERT INTO user_usage (user_id, email, tier, images_generated, current_period_start, current_period_end)
-        VALUES (${userId}, ${email || 'unknown@example.com'}, 'free', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 month')
+        INSERT INTO user_usage (user_id, email, tier, user_level, images_generated, current_period_start, current_period_end)
+        VALUES (${userId}, ${email || 'unknown@example.com'}, 'free', 'user', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 month')
         ON CONFLICT (user_id) DO UPDATE SET 
           images_generated = user_usage.images_generated + 1,
           email = EXCLUDED.email

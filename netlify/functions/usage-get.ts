@@ -37,6 +37,7 @@ export const handler: Handler = async (event) => {
         user_id,
         email,
         tier,
+        user_level,
         images_generated,
         current_period_start,
         current_period_end,
@@ -51,8 +52,8 @@ export const handler: Handler = async (event) => {
       // Create new usage record for user
       const email = event.queryStringParameters?.email || 'unknown@example.com';
       await sql`
-        INSERT INTO user_usage (user_id, email, tier, images_generated, current_period_start, current_period_end)
-        VALUES (${userId}, ${email}, 'free', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 month')
+        INSERT INTO user_usage (user_id, email, tier, user_level, images_generated, current_period_start, current_period_end)
+        VALUES (${userId}, ${email}, 'free', 'user', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 month')
         ON CONFLICT (user_id) DO UPDATE SET tier = EXCLUDED.tier
       `;
       
