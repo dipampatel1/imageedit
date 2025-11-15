@@ -11,8 +11,12 @@ import GeneratedImage from './components/GeneratedImage';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { HeroSection } from './components/HeroSection';
+import { PricingPage } from './components/PricingPage';
+import { HowToUsePage } from './components/HowToUsePage';
+import { FAQPage } from './components/FAQPage';
 
 function App() {
+  const [currentPage, setCurrentPage] = useState<'home' | 'pricing' | 'howto' | 'faq'>('home');
   const [mode, setMode] = useState<'edit' | 'generate'>('edit');
   const [originalImages, setOriginalImages] = useState<ImageFile[]>([]);
   const [editedImages, setEditedImages] = useState<EditedImage[]>([]);
@@ -158,11 +162,23 @@ function App() {
   };
 
 
+  const handleNavigate = (page: string) => {
+    setCurrentPage(page as 'home' | 'pricing' | 'howto' | 'faq');
+    // Scroll to top when navigating
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
-      <Header />
+      <Header onNavigate={handleNavigate} currentPage={currentPage} />
 
-      <main className="flex-grow container mx-auto p-4 md:p-8">
+      <main className="flex-grow">
+        {currentPage === 'pricing' && <PricingPage />}
+        {currentPage === 'howto' && <HowToUsePage />}
+        {currentPage === 'faq' && <FAQPage />}
+        
+        {currentPage === 'home' && (
+          <div className="container mx-auto p-4 md:p-8">
         
         {originalImages.length === 0 && editedImages.length === 0 && <HeroSection onStartEditing={handleStartEditing} />}
         
@@ -220,6 +236,8 @@ function App() {
               </div>
             </div>
         </div>
+          </div>
+        )}
       </main>
       <Footer />
     </div>

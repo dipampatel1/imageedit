@@ -6,10 +6,16 @@ import * as authService from '../services/authService';
 interface AuthModalProps {
     onClose: () => void;
     onAuthSuccess: () => void;
+    initialTab?: 'signin' | 'signup';
 }
 
-const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess }) => {
-    const [activeTab, setActiveTab] = useState<'signin' | 'signup'>('signin');
+const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTab = 'signin' }) => {
+    const [activeTab, setActiveTab] = useState<'signin' | 'signup'>(initialTab);
+    
+    // Update tab when initialTab prop changes
+    React.useEffect(() => {
+        setActiveTab(initialTab);
+    }, [initialTab]);
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
