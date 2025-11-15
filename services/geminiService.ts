@@ -6,10 +6,20 @@ const model = 'gemini-2.5-flash-image';
 
 // Get API key from Vite environment variables
 const getApiKey = (): string => {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY;
+  // Try multiple possible environment variable names for compatibility
+  const apiKey = 
+    import.meta.env.VITE_GEMINI_API_KEY || 
+    import.meta.env.GEMINI_API_KEY ||
+    import.meta.env.VITE_API_KEY ||
+    (window as any).__GEMINI_API_KEY__; // Fallback for Netlify build-time injection
   
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY is not configured. Please set VITE_GEMINI_API_KEY in your environment variables.');
+    console.error('Available env vars:', {
+      VITE_GEMINI_API_KEY: import.meta.env.VITE_GEMINI_API_KEY,
+      GEMINI_API_KEY: import.meta.env.GEMINI_API_KEY,
+      VITE_API_KEY: import.meta.env.VITE_API_KEY,
+    });
+    throw new Error('GEMINI_API_KEY is not configured. Please set VITE_GEMINI_API_KEY in your Netlify environment variables.');
   }
   
   return apiKey;
