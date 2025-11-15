@@ -88,9 +88,20 @@ const GeneratedImage: React.FC<GeneratedImageProps> = ({ editedImages, isLoading
           </div>
         )}
         {error && (
-          <div className="text-center text-red-400 bg-red-900/50 p-4 rounded-lg">
-            <p className="font-bold">Error</p>
-            <p className="text-sm">{error}</p>
+          <div className="text-center bg-red-900/50 p-4 rounded-lg border border-red-700">
+            <p className="font-bold text-red-400 mb-2">Error</p>
+            <p className="text-sm text-red-300 mb-3">{error}</p>
+            {error.includes('quota') && (
+              <div className="mt-3 pt-3 border-t border-red-700">
+                <p className="text-xs text-red-400 mb-2">To resolve this issue:</p>
+                <ol className="text-xs text-red-300 text-left list-decimal list-inside space-y-1 max-w-md mx-auto">
+                  <li>Go to <a href="https://console.cloud.google.com/apis/api/generativelanguage.googleapis.com/quotas" target="_blank" rel="noopener noreferrer" className="underline hover:text-red-200">Google Cloud Console</a></li>
+                  <li>Check your Gemini API usage and quotas</li>
+                  <li>Request a quota increase if needed</li>
+                  <li>Wait for quota to reset (usually daily/monthly)</li>
+                </ol>
+              </div>
+            )}
           </div>
         )}
         {!isLoading && !error && editedImages.length > 0 && (

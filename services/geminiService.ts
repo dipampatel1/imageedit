@@ -66,16 +66,32 @@ export const editImageWithGemini = async (
   } catch (error: any) {
     console.error('Error calling Gemini API:', error);
     
-    // Provide more detailed error messages
-    if (error.message?.includes('API_KEY') || error.message?.includes('api key')) {
-      throw new Error('Gemini API key is missing or invalid. Please check your environment variables.');
+    // Check for specific error codes and messages
+    const errorMessage = error.message || error.toString() || '';
+    const errorCode = error.code || error.status || '';
+    
+    // API key errors
+    if (errorMessage.includes('API_KEY') || errorMessage.includes('api key') || errorCode === 401 || errorCode === 403) {
+      throw new Error('Gemini API key is missing or invalid. Please check your environment variables in Netlify.');
     }
     
-    if (error.message?.includes('quota') || error.message?.includes('limit')) {
-      throw new Error('Gemini API quota exceeded. Please check your API usage limits.');
+    // Quota/rate limit errors
+    if (errorMessage.includes('quota') || 
+        errorMessage.includes('limit') || 
+        errorMessage.includes('429') ||
+        errorCode === 429 ||
+        errorMessage.includes('RESOURCE_EXHAUSTED') ||
+        errorMessage.includes('rate limit')) {
+      throw new Error('Gemini API quota exceeded. You have reached your API usage limit. Please check your Google Cloud Console to view usage and upgrade your quota if needed.');
     }
     
-    throw new Error(`Failed to generate image: ${error.message || 'Unknown error'}`);
+    // Network errors
+    if (errorMessage.includes('network') || errorMessage.includes('fetch') || errorMessage.includes('ECONNREFUSED')) {
+      throw new Error('Network error: Unable to connect to Gemini API. Please check your internet connection and try again.');
+    }
+    
+    // Generic error with more context
+    throw new Error(`Failed to generate image: ${errorMessage || 'Unknown error. Please try again later.'}`);
   }
 };
 
@@ -111,15 +127,31 @@ export const generateImageWithGemini = async (
   } catch (error: any) {
     console.error('Error calling Gemini API for generation:', error);
     
-    // Provide more detailed error messages
-    if (error.message?.includes('API_KEY') || error.message?.includes('api key')) {
-      throw new Error('Gemini API key is missing or invalid. Please check your environment variables.');
+    // Check for specific error codes and messages
+    const errorMessage = error.message || error.toString() || '';
+    const errorCode = error.code || error.status || '';
+    
+    // API key errors
+    if (errorMessage.includes('API_KEY') || errorMessage.includes('api key') || errorCode === 401 || errorCode === 403) {
+      throw new Error('Gemini API key is missing or invalid. Please check your environment variables in Netlify.');
     }
     
-    if (error.message?.includes('quota') || error.message?.includes('limit')) {
-      throw new Error('Gemini API quota exceeded. Please check your API usage limits.');
+    // Quota/rate limit errors
+    if (errorMessage.includes('quota') || 
+        errorMessage.includes('limit') || 
+        errorMessage.includes('429') ||
+        errorCode === 429 ||
+        errorMessage.includes('RESOURCE_EXHAUSTED') ||
+        errorMessage.includes('rate limit')) {
+      throw new Error('Gemini API quota exceeded. You have reached your API usage limit. Please check your Google Cloud Console to view usage and upgrade your quota if needed.');
     }
     
-    throw new Error(`Failed to generate image: ${error.message || 'Unknown error'}`);
+    // Network errors
+    if (errorMessage.includes('network') || errorMessage.includes('fetch') || errorMessage.includes('ECONNREFUSED')) {
+      throw new Error('Network error: Unable to connect to Gemini API. Please check your internet connection and try again.');
+    }
+    
+    // Generic error with more context
+    throw new Error(`Failed to generate image: ${errorMessage || 'Unknown error. Please try again later.'}`);
   }
 };
