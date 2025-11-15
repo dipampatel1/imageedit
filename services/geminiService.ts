@@ -4,14 +4,24 @@ import type { ImageFile } from '../types';
 
 const model = 'gemini-2.5-flash-image';
 
+// Get API key from Vite environment variables
+const getApiKey = (): string => {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY is not configured. Please set VITE_GEMINI_API_KEY in your environment variables.');
+  }
+  
+  return apiKey;
+};
+
 export const editImageWithGemini = async (
   image: ImageFile,
   prompt: string
 ): Promise<string | null> => {
   try {
-    // Initialize the GoogleGenAI client here to ensure `process.env.API_KEY` is available
-    // when the function is called, rather than at module load time.
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = getApiKey();
+    const ai = new GoogleGenAI({ apiKey });
 
     const imagePart = {
       inlineData: {
@@ -43,9 +53,19 @@ export const editImageWithGemini = async (
 
     return null;
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error calling Gemini API:', error);
-    throw new Error('Failed to generate image with Gemini. Check the console for details.');
+    
+    // Provide more detailed error messages
+    if (error.message?.includes('API_KEY') || error.message?.includes('api key')) {
+      throw new Error('Gemini API key is missing or invalid. Please check your environment variables.');
+    }
+    
+    if (error.message?.includes('quota') || error.message?.includes('limit')) {
+      throw new Error('Gemini API quota exceeded. Please check your API usage limits.');
+    }
+    
+    throw new Error(`Failed to generate image: ${error.message || 'Unknown error'}`);
   }
 };
 
@@ -53,7 +73,8 @@ export const generateImageWithGemini = async (
   prompt: string
 ): Promise<string | null> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = getApiKey();
+    const ai = new GoogleGenAI({ apiKey });
 
     const textPart = {
       text: prompt,
@@ -77,8 +98,18 @@ export const generateImageWithGemini = async (
 
     return null;
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error calling Gemini API for generation:', error);
-    throw new Error('Failed to generate image with Gemini. Check the console for details.');
+    
+    // Provide more detailed error messages
+    if (error.message?.includes('API_KEY') || error.message?.includes('api key')) {
+      throw new Error('Gemini API key is missing or invalid. Please check your environment variables.');
+    }
+    
+    if (error.message?.includes('quota') || error.message?.includes('limit')) {
+      throw new Error('Gemini API quota exceeded. Please check your API usage limits.');
+    }
+    
+    throw new Error(`Failed to generate image: ${error.message || 'Unknown error'}`);
   }
 };
