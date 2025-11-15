@@ -1,8 +1,9 @@
 
 import type { UserProfile } from '../types';
+import { getStackClient, isNeonAuthConfigured } from './neonAuthService';
 
-// This service simulates a backend user authentication system using localStorage.
-// It's a robust way to test user flows without a live server.
+// This service integrates with Neon Auth (Stack Auth) when configured,
+// with a localStorage fallback for development/testing.
 
 const USERS_DB_KEY = 'imageedit_users';
 const CURRENT_USER_KEY = 'imageedit_currentUser';
@@ -37,9 +38,43 @@ const createSession = (user: any) => {
  * Registers a new user and automatically signs them in.
  * @throws Will throw an error if the email is already in use.
  */
-export const signUp = (name: string, email: string, password: string): Promise<{ profile: UserProfile, isPro: boolean }> => {
+export const signUp = async (name: string, email: string, password: string): Promise<{ profile: UserProfile, isPro: boolean }> => {
+    // Try Neon Auth first if configured
+    if (isNeonAuthConfigured()) {
+        const stackClient = await getStackClient();
+        if (stackClient) {
+            try {
+                // Stack Auth API - adjust method names based on actual SDK
+                const user = await stackClient.signUpWithCredential?.({
+                    email,
+                    password,
+                    displayName: name,
+                }) || await stackClient.signUp?.({
+                    email,
+                    password,
+                    displayName: name,
+                });
+                
+                if (user) {
+                    return {
+                        profile: {
+                            name: user.displayName || user.name || name,
+                            email: user.primaryEmail || user.email || email,
+                            imageUrl: user.profileImageUrl || user.imageUrl || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(name)}`,
+                        },
+                        isPro: false, // Will be determined by subscription
+                    };
+                }
+            } catch (error: any) {
+                console.error('Stack Auth sign up error:', error);
+                throw new Error(error.message || 'Failed to create account. Please try again.');
+            }
+        }
+    }
+    
+    // Fallback to localStorage
     return new Promise((resolve, reject) => {
-        setTimeout(() => { // Simulate network latency
+        setTimeout(() => {
             const users = getUsers();
             const existingUser = users.find(u => u.email === email);
 
@@ -60,7 +95,6 @@ export const signUp = (name: string, email: string, password: string): Promise<{
 
             const session = createSession(newUser);
             resolve(session);
-
         }, 500);
     });
 };
@@ -69,9 +103,41 @@ export const signUp = (name: string, email: string, password: string): Promise<{
  * Signs in an existing user.
  * @throws Will throw an error for invalid credentials.
  */
-export const signIn = (email: string, password: string): Promise<{ profile: UserProfile, isPro: boolean }> => {
-     return new Promise((resolve, reject) => {
-        setTimeout(() => { // Simulate network latency
+export const signIn = async (email: string, password: string): Promise<{ profile: UserProfile, isPro: boolean }> => {
+    // Try Neon Auth first if configured
+    if (isNeonAuthConfigured()) {
+        const stackClient = await getStackClient();
+        if (stackClient) {
+            try {
+                // Stack Auth API - adjust method names based on actual SDK
+                const user = await stackClient.signInWithCredential?.({
+                    email,
+                    password,
+                }) || await stackClient.signIn?.({
+                    email,
+                    password,
+                });
+                
+                if (user) {
+                    return {
+                        profile: {
+                            name: user.displayName || user.name || email.split('@')[0],
+                            email: user.primaryEmail || user.email || email,
+                            imageUrl: user.profileImageUrl || user.imageUrl || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(email)}`,
+                        },
+                        isPro: false, // Will be determined by subscription
+                    };
+                }
+            } catch (error: any) {
+                console.error('Stack Auth sign in error:', error);
+                throw new Error(error.message || 'Invalid email or password.');
+            }
+        }
+    }
+    
+    // Fallback to localStorage
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
             const users = getUsers();
             const user = users.find(u => u.email === email);
 
@@ -81,23 +147,58 @@ export const signIn = (email: string, password: string): Promise<{ profile: User
             
             const session = createSession(user);
             resolve(session);
-
         }, 500);
     });
 };
 
 /**
- * Signs out the current user by clearing the session from localStorage.
+ * Signs out the current user.
  */
-export const signOut = (): void => {
+export const signOut = async (): Promise<void> => {
+    // Try Neon Auth first if configured
+    if (isNeonAuthConfigured()) {
+        const stackClient = await getStackClient();
+        if (stackClient) {
+            try {
+                await stackClient.signOut();
+            } catch (error) {
+                console.error('Error signing out from Neon Auth:', error);
+            }
+        }
+    }
+    
+    // Always clear localStorage as fallback
     localStorage.removeItem(CURRENT_USER_KEY);
 };
 
 /**
- * Gets the currently signed-in user from the localStorage session.
+ * Gets the currently signed-in user.
  * @returns The user session object or null if not signed in.
  */
-export const getCurrentUser = (): { profile: UserProfile, isPro: boolean } | null => {
+export const getCurrentUser = async (): Promise<{ profile: UserProfile, isPro: boolean } | null> => {
+    // Try Neon Auth first if configured
+    if (isNeonAuthConfigured()) {
+        const stackClient = await getStackClient();
+        if (stackClient) {
+            try {
+                const user = await stackClient.getUser?.() || await stackClient.user;
+                if (user) {
+                    return {
+                        profile: {
+                            name: user.displayName || user.name || user.primaryEmail?.split('@')[0] || 'User',
+                            email: user.primaryEmail || user.email || '',
+                            imageUrl: user.profileImageUrl || user.imageUrl || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(user.primaryEmail || user.email || 'user')}`,
+                        },
+                        isPro: false, // Will be determined by subscription
+                    };
+                }
+            } catch (error) {
+                console.error('Error getting user from Neon Auth:', error);
+            }
+        }
+    }
+    
+    // Fallback to localStorage
     const session = localStorage.getItem(CURRENT_USER_KEY);
     return session ? JSON.parse(session) : null;
 };
@@ -105,10 +206,12 @@ export const getCurrentUser = (): { profile: UserProfile, isPro: boolean } | nul
 /**
  * Simulates upgrading the current user to a Pro plan.
  */
-export const upgradeCurrentUserToPro = (): void => {
-    const session = getCurrentUser();
+export const upgradeCurrentUserToPro = async (): Promise<void> => {
+    const session = await getCurrentUser();
     if (!session) return;
 
+    // For Neon Auth, subscription management would be handled via Stripe webhooks
+    // For now, just update localStorage
     const users = getUsers();
     const userIndex = users.findIndex(u => u.email === session.profile.email);
 

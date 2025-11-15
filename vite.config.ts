@@ -21,6 +21,9 @@ export default defineConfig(({ mode }) => {
         'import.meta.env.VITE_GEMINI_API_KEY': JSON.stringify(apiKey),
         'import.meta.env.VITE_API_KEY': JSON.stringify(apiKey),
         'import.meta.env.VITE_NETLIFY_FUNCTIONS_URL': JSON.stringify(env.VITE_NETLIFY_FUNCTIONS_URL || '/.netlify/functions'),
+        // Neon Auth (Stack Auth) environment variables
+        'import.meta.env.VITE_STACK_PROJECT_ID': JSON.stringify(env.VITE_STACK_PROJECT_ID || ''),
+        'import.meta.env.VITE_STACK_PUBLISHABLE_CLIENT_KEY': JSON.stringify(env.VITE_STACK_PUBLISHABLE_CLIENT_KEY || ''),
       },
       resolve: {
         alias: {
