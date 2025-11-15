@@ -64,34 +64,72 @@ export const editImageWithGemini = async (
     return null;
 
   } catch (error: any) {
-    console.error('Error calling Gemini API:', error);
+    // Log full error details for debugging
+    console.error('Error calling Gemini API:', {
+      error,
+      message: error?.message,
+      code: error?.code,
+      status: error?.status,
+      statusCode: error?.statusCode,
+      response: error?.response,
+      details: error?.details,
+    });
     
     // Check for specific error codes and messages
-    const errorMessage = error.message || error.toString() || '';
-    const errorCode = error.code || error.status || '';
+    const errorMessage = error?.message || error?.toString() || '';
+    const errorCode = error?.code || error?.status || error?.statusCode || '';
+    const errorDetails = error?.details || error?.response || {};
+    
+    // Log the actual API response if available
+    if (error?.response) {
+      console.error('Gemini API Response:', error.response);
+    }
     
     // API key errors
-    if (errorMessage.includes('API_KEY') || errorMessage.includes('api key') || errorCode === 401 || errorCode === 403) {
+    if (errorMessage.includes('API_KEY') || 
+        errorMessage.includes('api key') || 
+        errorMessage.includes('API key') ||
+        errorCode === 401 || 
+        errorCode === 403 ||
+        errorDetails?.code === 401 ||
+        errorDetails?.code === 403) {
       throw new Error('Gemini API key is missing or invalid. Please check your environment variables in Netlify.');
     }
     
-    // Quota/rate limit errors
-    if (errorMessage.includes('quota') || 
-        errorMessage.includes('limit') || 
-        errorMessage.includes('429') ||
-        errorCode === 429 ||
-        errorMessage.includes('RESOURCE_EXHAUSTED') ||
-        errorMessage.includes('rate limit')) {
+    // Quota/rate limit errors - check multiple indicators
+    const isQuotaError = 
+      errorMessage.includes('quota') || 
+      errorMessage.includes('limit') || 
+      errorMessage.includes('429') ||
+      errorMessage.includes('RESOURCE_EXHAUSTED') ||
+      errorMessage.includes('rate limit') ||
+      errorMessage.includes('Rate limit') ||
+      errorCode === 429 ||
+      errorCode === '429' ||
+      errorDetails?.code === 429 ||
+      errorDetails?.reason === 'RATE_LIMIT_EXCEEDED' ||
+      errorDetails?.reason === 'RESOURCE_EXHAUSTED';
+    
+    if (isQuotaError) {
+      console.warn('Quota exceeded - Full error details:', error);
       throw new Error('Gemini API quota exceeded. You have reached your API usage limit. Please check your Google Cloud Console to view usage and upgrade your quota if needed.');
     }
     
     // Network errors
-    if (errorMessage.includes('network') || errorMessage.includes('fetch') || errorMessage.includes('ECONNREFUSED')) {
+    if (errorMessage.includes('network') || 
+        errorMessage.includes('fetch') || 
+        errorMessage.includes('ECONNREFUSED') ||
+        errorMessage.includes('Failed to fetch')) {
       throw new Error('Network error: Unable to connect to Gemini API. Please check your internet connection and try again.');
     }
     
     // Generic error with more context
-    throw new Error(`Failed to generate image: ${errorMessage || 'Unknown error. Please try again later.'}`);
+    const detailedMessage = errorMessage || 
+      errorDetails?.message || 
+      `Error code: ${errorCode}` || 
+      'Unknown error. Please try again later.';
+    
+    throw new Error(`Failed to generate image: ${detailedMessage}`);
   }
 };
 
@@ -125,33 +163,71 @@ export const generateImageWithGemini = async (
     return null;
 
   } catch (error: any) {
-    console.error('Error calling Gemini API for generation:', error);
+    // Log full error details for debugging
+    console.error('Error calling Gemini API for generation:', {
+      error,
+      message: error?.message,
+      code: error?.code,
+      status: error?.status,
+      statusCode: error?.statusCode,
+      response: error?.response,
+      details: error?.details,
+    });
     
     // Check for specific error codes and messages
-    const errorMessage = error.message || error.toString() || '';
-    const errorCode = error.code || error.status || '';
+    const errorMessage = error?.message || error?.toString() || '';
+    const errorCode = error?.code || error?.status || error?.statusCode || '';
+    const errorDetails = error?.details || error?.response || {};
+    
+    // Log the actual API response if available
+    if (error?.response) {
+      console.error('Gemini API Response:', error.response);
+    }
     
     // API key errors
-    if (errorMessage.includes('API_KEY') || errorMessage.includes('api key') || errorCode === 401 || errorCode === 403) {
+    if (errorMessage.includes('API_KEY') || 
+        errorMessage.includes('api key') || 
+        errorMessage.includes('API key') ||
+        errorCode === 401 || 
+        errorCode === 403 ||
+        errorDetails?.code === 401 ||
+        errorDetails?.code === 403) {
       throw new Error('Gemini API key is missing or invalid. Please check your environment variables in Netlify.');
     }
     
-    // Quota/rate limit errors
-    if (errorMessage.includes('quota') || 
-        errorMessage.includes('limit') || 
-        errorMessage.includes('429') ||
-        errorCode === 429 ||
-        errorMessage.includes('RESOURCE_EXHAUSTED') ||
-        errorMessage.includes('rate limit')) {
+    // Quota/rate limit errors - check multiple indicators
+    const isQuotaError = 
+      errorMessage.includes('quota') || 
+      errorMessage.includes('limit') || 
+      errorMessage.includes('429') ||
+      errorMessage.includes('RESOURCE_EXHAUSTED') ||
+      errorMessage.includes('rate limit') ||
+      errorMessage.includes('Rate limit') ||
+      errorCode === 429 ||
+      errorCode === '429' ||
+      errorDetails?.code === 429 ||
+      errorDetails?.reason === 'RATE_LIMIT_EXCEEDED' ||
+      errorDetails?.reason === 'RESOURCE_EXHAUSTED';
+    
+    if (isQuotaError) {
+      console.warn('Quota exceeded - Full error details:', error);
       throw new Error('Gemini API quota exceeded. You have reached your API usage limit. Please check your Google Cloud Console to view usage and upgrade your quota if needed.');
     }
     
     // Network errors
-    if (errorMessage.includes('network') || errorMessage.includes('fetch') || errorMessage.includes('ECONNREFUSED')) {
+    if (errorMessage.includes('network') || 
+        errorMessage.includes('fetch') || 
+        errorMessage.includes('ECONNREFUSED') ||
+        errorMessage.includes('Failed to fetch')) {
       throw new Error('Network error: Unable to connect to Gemini API. Please check your internet connection and try again.');
     }
     
     // Generic error with more context
-    throw new Error(`Failed to generate image: ${errorMessage || 'Unknown error. Please try again later.'}`);
+    const detailedMessage = errorMessage || 
+      errorDetails?.message || 
+      `Error code: ${errorCode}` || 
+      'Unknown error. Please try again later.';
+    
+    throw new Error(`Failed to generate image: ${detailedMessage}`);
   }
 };
