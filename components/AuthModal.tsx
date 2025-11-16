@@ -37,26 +37,43 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
             const user = await authService.signUp(name, email, password);
             
             // Initialize user in database (create user_usage record)
+            console.log('User signed up, attempting to initialize in database:', user);
+            
             if (user.userId && user.profile.email) {
+                console.log('Using Neon Auth userId:', user.userId);
                 try {
-                    await initializeUser(user.userId, user.profile.email, user.profile.name);
+                    const result = await initializeUser(user.userId, user.profile.email, user.profile.name);
+                    if (result) {
+                        console.log('User successfully initialized in database');
+                    } else {
+                        console.warn('User initialization returned null - check console for errors');
+                    }
                 } catch (initError) {
-                    console.warn('Failed to initialize user in database:', initError);
+                    console.error('Failed to initialize user in database:', initError);
                     // Don't fail sign up if initialization fails - record will be created lazily
                 }
             } else if (user.profile.email) {
                 // For localStorage fallback, generate userId from email
+                console.log('No userId from auth, generating from email');
                 const encoder = new TextEncoder();
                 const data = encoder.encode(user.profile.email);
                 const hashBuffer = await crypto.subtle.digest('SHA-256', data);
                 const hashArray = Array.from(new Uint8Array(hashBuffer));
                 const userId = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
                 
+                console.log('Generated userId from email:', userId);
                 try {
-                    await initializeUser(userId, user.profile.email, user.profile.name);
+                    const result = await initializeUser(userId, user.profile.email, user.profile.name);
+                    if (result) {
+                        console.log('User successfully initialized in database');
+                    } else {
+                        console.warn('User initialization returned null - check console for errors');
+                    }
                 } catch (initError) {
-                    console.warn('Failed to initialize user in database:', initError);
+                    console.error('Failed to initialize user in database:', initError);
                 }
+            } else {
+                console.warn('Cannot initialize user - missing userId and email');
             }
             
             onAuthSuccess(); // Automatically sign in after successful sign-up

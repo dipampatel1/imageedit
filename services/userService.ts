@@ -65,17 +65,25 @@ export const getCompleteUser = async (): Promise<CompleteUser | null> => {
  */
 export const initializeUser = async (userId: string, email: string, name?: string): Promise<UserUsage | null> => {
   try {
+    console.log('Initializing user in database:', { userId, email, name, functionsUrl: FUNCTIONS_URL });
+    
     const response = await fetch(`${FUNCTIONS_URL}/user-init`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, email, name }),
     });
 
+    console.log('User init response status:', response.status);
+
     if (!response.ok) {
-      throw new Error('Failed to initialize user');
+      const errorText = await response.text();
+      console.error('Failed to initialize user:', response.status, errorText);
+      throw new Error(`Failed to initialize user: ${response.status} ${errorText}`);
     }
 
-    return await response.json();
+    const result = await response.json();
+    console.log('User initialized successfully:', result);
+    return result;
   } catch (error) {
     console.error('Error initializing user:', error);
     // Don't throw - allow user to continue even if initialization fails
