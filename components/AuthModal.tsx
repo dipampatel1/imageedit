@@ -25,22 +25,24 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
 
     const handleSignUp = async (e: React.FormEvent) => {
         e.preventDefault();
-        console.log('handleSignUp called');
+        console.log('🔵 handleSignUp called');
         setError(null);
         
         if (!name || !email || !password) {
+            console.warn('⚠️ Form validation failed - missing fields');
             setError("All fields are required.");
             return;
         }
         
-        console.log('Form validation passed, starting sign up...');
+        console.log('✅ Form validation passed, starting sign up...');
+        console.log('Form data:', { name, email, passwordLength: password.length });
         setIsLoading(true);
 
         try {
-            console.log('Calling authService.signUp...');
+            console.log('🔵 Calling authService.signUp...');
             // Sign up the user (creates in Supabase Auth or localStorage)
             const user = await authService.signUp(name, email, password);
-            console.log('Sign up successful, user:', user);
+            console.log('✅ Sign up successful, user:', user);
             
             // Initialize user in database (create user_usage record)
             console.log('User signed up, attempting to initialize in database:', user);
@@ -102,7 +104,13 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
             onAuthSuccess(); // Automatically sign in after successful sign-up
             console.log('Sign up flow completed successfully');
         } catch (err) {
-            console.error('Sign up error caught:', err);
+            console.error('❌ Sign up error caught:', err);
+            console.error('Error type:', typeof err);
+            console.error('Error details:', {
+                message: err instanceof Error ? err.message : String(err),
+                stack: err instanceof Error ? err.stack : undefined,
+                name: err instanceof Error ? err.name : undefined,
+            });
             const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
             console.error('Setting error message:', errorMessage);
             setError(errorMessage);
@@ -114,7 +122,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
                 }
             }, 100);
         } finally {
-            console.log('Setting isLoading to false');
+            console.log('🔵 Setting isLoading to false');
             setIsLoading(false);
         }
     };

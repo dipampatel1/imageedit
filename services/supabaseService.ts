@@ -19,21 +19,42 @@ let supabaseClient: ReturnType<typeof createClient> | null = null;
  * Uses anon key - respects Row Level Security (RLS) policies
  */
 export const getSupabaseClient = (): ReturnType<typeof createClient> | null => {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === 'undefined') {
+    console.warn('getSupabaseClient called outside browser context');
+    return null;
+  }
   
   if (!supabaseClient) {
+    console.log('🔵 Initializing Supabase client...');
+    console.log('Config check:', {
+      hasUrl: !!SUPABASE_URL,
+      hasAnonKey: !!SUPABASE_ANON_KEY,
+      url: SUPABASE_URL?.substring(0, 50) + '...',
+      keyPrefix: SUPABASE_ANON_KEY?.substring(0, 20) + '...',
+    });
+    
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-      console.warn('Supabase not configured - missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY');
+      console.error('❌ Supabase not configured - missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY');
+      console.error('Missing:', {
+        url: !SUPABASE_URL,
+        anonKey: !SUPABASE_ANON_KEY,
+      });
       return null;
     }
     
-    supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-      },
-    });
+    try {
+      supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+        },
+      });
+      console.log('✅ Supabase client initialized successfully');
+    } catch (error) {
+      console.error('❌ Failed to create Supabase client:', error);
+      return null;
+    }
   }
   
   return supabaseClient;

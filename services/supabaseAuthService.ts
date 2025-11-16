@@ -8,13 +8,19 @@ import type { UserProfile } from '../types';
  * Sign up a new user with Supabase Auth
  */
 export const signUp = async (name: string, email: string, password: string): Promise<{ profile: UserProfile, userId: string }> => {
+  console.log('🔵 Supabase Auth signUp called:', { name, email, passwordLength: password.length });
+  
   const supabase = getSupabaseClient();
   
   if (!supabase) {
-    throw new Error('Supabase client not available. Check your Supabase configuration.');
+    console.error('❌ Supabase client not available');
+    throw new Error('Supabase client not available. Check your Supabase configuration (VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY).');
   }
   
+  console.log('✅ Supabase client obtained');
+  
   try {
+    console.log('🔵 Calling supabase.auth.signUp...');
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -26,14 +32,29 @@ export const signUp = async (name: string, email: string, password: string): Pro
       },
     });
     
+    console.log('Supabase signUp response:', { 
+      hasData: !!data, 
+      hasUser: !!data?.user, 
+      hasError: !!error,
+      errorMessage: error?.message 
+    });
+    
     if (error) {
-      console.error('Supabase sign up error:', error);
+      console.error('❌ Supabase sign up error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        status: error.status,
+        name: error.name,
+      });
       throw new Error(error.message || 'Failed to create account. Please try again.');
     }
     
     if (!data.user) {
+      console.error('❌ User object was null');
       throw new Error('Failed to create account. User object was null.');
     }
+    
+    console.log('✅ Supabase user created:', { userId: data.user.id, email: data.user.email });
     
     return {
       profile: {
@@ -44,7 +65,13 @@ export const signUp = async (name: string, email: string, password: string): Pro
       userId: data.user.id,
     };
   } catch (error: any) {
-    console.error('Error in Supabase sign up:', error);
+    console.error('❌ Error in Supabase sign up:', error);
+    console.error('Error type:', typeof error);
+    console.error('Error details:', {
+      message: error?.message,
+      stack: error?.stack,
+      name: error?.name,
+    });
     throw error;
   }
 };
