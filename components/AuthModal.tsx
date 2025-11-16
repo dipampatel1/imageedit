@@ -45,18 +45,24 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
             // Initialize user in database (create user_usage record)
             console.log('User signed up, attempting to initialize in database:', user);
             
+            // Initialize user in database (create user_usage record)
+            let initSuccess = false;
+            let initError: string | null = null;
+            
             if (user.userId && user.profile.email) {
                 console.log('Using Neon Auth userId:', user.userId);
                 try {
                     const result = await initializeUser(user.userId, user.profile.email, user.profile.name);
-                    if (result) {
-                        console.log('User successfully initialized in database');
+                    if (result && result.user_id) {
+                        console.log('✅ User successfully initialized in database:', result);
+                        initSuccess = true;
                     } else {
-                        console.warn('User initialization returned null - check console for errors');
+                        initError = 'User initialization returned invalid result - check browser console and Netlify function logs';
+                        console.error('❌', initError, result);
                     }
-                } catch (initError) {
-                    console.error('Failed to initialize user in database:', initError);
-                    // Don't fail sign up if initialization fails - record will be created lazily
+                } catch (initErrorObj) {
+                    initError = `Failed to initialize user: ${initErrorObj instanceof Error ? initErrorObj.message : 'Unknown error'}`;
+                    console.error('❌ Failed to initialize user in database:', initErrorObj);
                 }
             } else if (user.profile.email) {
                 // For localStorage fallback, generate userId from email
@@ -70,16 +76,28 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
                 console.log('Generated userId from email:', userId);
                 try {
                     const result = await initializeUser(userId, user.profile.email, user.profile.name);
-                    if (result) {
-                        console.log('User successfully initialized in database');
+                    if (result && result.user_id) {
+                        console.log('✅ User successfully initialized in database:', result);
+                        initSuccess = true;
                     } else {
-                        console.warn('User initialization returned null - check console for errors');
+                        initError = 'User initialization returned invalid result - check browser console and Netlify function logs';
+                        console.error('❌', initError, result);
                     }
-                } catch (initError) {
-                    console.error('Failed to initialize user in database:', initError);
+                } catch (initErrorObj) {
+                    initError = `Failed to initialize user: ${initErrorObj instanceof Error ? initErrorObj.message : 'Unknown error'}`;
+                    console.error('❌ Failed to initialize user in database:', initErrorObj);
                 }
             } else {
-                console.warn('Cannot initialize user - missing userId and email');
+                initError = 'Cannot initialize user - missing userId and email';
+                console.warn('⚠️', initError);
+            }
+            
+            // Show warning if database initialization failed (but don't block sign up)
+            if (!initSuccess) {
+                console.warn('⚠️ Database initialization failed. User can still use the app, but record will be created when they first generate an image.');
+                console.warn('Error:', initError);
+                // Show a visible warning in the UI
+                setError(`Account created! ⚠️ Database initialization failed: ${initError || 'Unknown error'}. Check console for details.`);
             }
             
             console.log('Calling onAuthSuccess...');

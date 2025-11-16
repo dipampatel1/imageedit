@@ -67,28 +67,50 @@ export const initializeUser = async (userId: string, email: string, name?: strin
   try {
     console.log('Initializing user in database:', { userId, email, name, functionsUrl: FUNCTIONS_URL });
     
-    const response = await fetch(`${FUNCTIONS_URL}/user-init`, {
+    const url = `${FUNCTIONS_URL}/user-init`;
+    console.log('Calling:', url);
+    
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, email, name }),
     });
 
     console.log('User init response status:', response.status);
+    console.log('User init response headers:', Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Failed to initialize user:', response.status, errorText);
-      throw new Error(`Failed to initialize user: ${response.status} ${errorText}`);
+      let errorText = '';
+      try {
+        errorText = await response.text();
+        console.error('Failed to initialize user - response body:', errorText);
+      } catch (e) {
+        errorText = `HTTP ${response.status} ${response.statusText}`;
+        console.error('Failed to read error response:', e);
+      }
+      
+      const errorMessage = `Failed to initialize user: ${response.status} ${errorText}`;
+      console.error(errorMessage);
+      throw new Error(errorMessage);
     }
 
     const result = await response.json();
     console.log('User initialized successfully:', result);
+    
+    if (!result || !result.user_id) {
+      console.error('User initialization returned invalid result:', result);
+      throw new Error('User initialization returned invalid result');
+    }
+    
     return result;
   } catch (error) {
     console.error('Error initializing user:', error);
-    // Don't throw - allow user to continue even if initialization fails
-    // The record will be created lazily when usage is fetched
-    return null;
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    // Re-throw so the caller knows it failed
+    throw error;
   }
 };
 
