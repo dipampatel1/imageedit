@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { LogoIcon } from './icons/LogoIcon';
 import * as authService from '../services/authService';
+import { initializeUser } from '../services/userService';
 
 interface AuthModalProps {
     onClose: () => void;
@@ -32,7 +33,32 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
         setIsLoading(true);
 
         try {
-            await authService.signUp(name, email, password);
+            // Sign up the user (creates in Neon Auth or localStorage)
+            const user = await authService.signUp(name, email, password);
+            
+            // Initialize user in database (create user_usage record)
+            if (user.userId && user.profile.email) {
+                try {
+                    await initializeUser(user.userId, user.profile.email, user.profile.name);
+                } catch (initError) {
+                    console.warn('Failed to initialize user in database:', initError);
+                    // Don't fail sign up if initialization fails - record will be created lazily
+                }
+            } else if (user.profile.email) {
+                // For localStorage fallback, generate userId from email
+                const encoder = new TextEncoder();
+                const data = encoder.encode(user.profile.email);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                const userId = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
+                
+                try {
+                    await initializeUser(userId, user.profile.email, user.profile.name);
+                } catch (initError) {
+                    console.warn('Failed to initialize user in database:', initError);
+                }
+            }
+            
             onAuthSuccess(); // Automatically sign in after successful sign-up
         } catch (err) {
             setError(err instanceof Error ? err.message : 'An unknown error occurred.');

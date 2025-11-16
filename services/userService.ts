@@ -5,6 +5,8 @@ import * as authService from './authService';
 import { getUserUsage, type UserUsage } from './usageService';
 import type { UserProfile } from '../types';
 
+const FUNCTIONS_URL = import.meta.env.VITE_NETLIFY_FUNCTIONS_URL || '/.netlify/functions';
+
 export interface CompleteUser {
   profile: UserProfile;
   userId: string;
@@ -55,5 +57,30 @@ export const getCompleteUser = async (): Promise<CompleteUser | null> => {
     isAdmin,
     usage: usage || undefined,
   };
+};
+
+/**
+ * Initialize a new user in the database after sign up
+ * Creates a record in user_usage table
+ */
+export const initializeUser = async (userId: string, email: string, name?: string): Promise<UserUsage | null> => {
+  try {
+    const response = await fetch(`${FUNCTIONS_URL}/user-init`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, email, name }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to initialize user');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error initializing user:', error);
+    // Don't throw - allow user to continue even if initialization fails
+    // The record will be created lazily when usage is fetched
+    return null;
+  }
 };
 
