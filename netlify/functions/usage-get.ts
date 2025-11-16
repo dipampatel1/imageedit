@@ -1,7 +1,23 @@
-import { neon } from '@neondatabase/serverless';
+import { createClient } from '@supabase/supabase-js';
 import type { Handler } from '@netlify/functions';
 
-const sql = neon(process.env.DATABASE_URL!);
+// Initialize Supabase client for server-side operations
+const getSupabase = () => {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    console.error('Supabase configuration missing');
+    return null;
+  }
+  
+  return createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+};
 
 export const handler: Handler = async (event) => {
   // Handle CORS
@@ -31,44 +47,76 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const result = await sql`
-      SELECT 
-        id,
-        user_id,
-        email,
-        tier,
-        user_level,
-        images_generated,
-        current_period_start,
-        current_period_end,
-        created_at,
-        updated_at
-      FROM user_usage
-      WHERE user_id = ${userId}
-      LIMIT 1
-    `;
+    const supabase = getSupabase();
+    if (!supabase) {
+      return {
+        statusCode: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ error: 'Database connection not configured' }),
+      };
+    }
 
-    if (result.length === 0) {
+    const { data: result, error } = await supabase
+      .from('user_usage')
+      .select('id, user_id, email, tier, user_level, images_generated, current_period_start, current_period_end, created_at, updated_at')
+      .eq('user_id', userId)
+      .limit(1)
+      .single();
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+      console.error('Error fetching usage:', error);
+      return {
+        statusCode: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ error: error.message || 'Internal server error' }),
+      };
+    }
+
+    if (!result) {
       // Create new usage record for user
       const email = event.queryStringParameters?.email || 'unknown@example.com';
-      await sql`
-        INSERT INTO user_usage (user_id, email, tier, user_level, images_generated, current_period_start, current_period_end)
-        VALUES (${userId}, ${email}, 'free', 'user', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 month')
-        ON CONFLICT (user_id) DO UPDATE SET tier = EXCLUDED.tier
-      `;
+      const periodEnd = new Date();
+      periodEnd.setMonth(periodEnd.getMonth() + 1);
       
-      // Fetch the newly created record
-      const newResult = await sql`
-        SELECT * FROM user_usage WHERE user_id = ${userId} LIMIT 1
-      `;
-      
+      const { data: newResult, error: insertError } = await supabase
+        .from('user_usage')
+        .insert({
+          user_id: userId,
+          email: email,
+          tier: 'free',
+          user_level: 'user',
+          images_generated: 0,
+          current_period_start: new Date().toISOString(),
+          current_period_end: periodEnd.toISOString(),
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Error creating usage record:', insertError);
+        return {
+          statusCode: 500,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ error: insertError.message || 'Internal server error' }),
+        };
+      }
+
       return {
         statusCode: 200,
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newResult[0] || null),
+        body: JSON.stringify(newResult || null),
       };
     }
 
@@ -78,7 +126,7 @@ export const handler: Handler = async (event) => {
         'Access-Control-Allow-Origin': '*',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(result[0] || null),
+      body: JSON.stringify(result || null),
     };
   } catch (error: any) {
     console.error('Error fetching usage:', error);
@@ -92,4 +140,3 @@ export const handler: Handler = async (event) => {
     };
   }
 };
-

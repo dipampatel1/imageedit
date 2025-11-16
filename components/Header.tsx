@@ -277,7 +277,7 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage = 'home'
       {showAdminPanel && user && (
         <AdminPanel
           onClose={() => setShowAdminPanel(false)}
-          neonProjectId={import.meta.env.VITE_NEON_PROJECT_ID}
+          supabaseProjectRef={import.meta.env.VITE_SUPABASE_PROJECT_REF}
         />
       )}
     </header>

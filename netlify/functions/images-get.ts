@@ -1,7 +1,23 @@
-import { neon } from '@neondatabase/serverless';
+import { createClient } from '@supabase/supabase-js';
 import type { Handler } from '@netlify/functions';
 
-const sql = neon(process.env.DATABASE_URL!);
+// Initialize Supabase client for server-side operations
+const getSupabase = () => {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    console.error('Supabase configuration missing');
+    return null;
+  }
+  
+  return createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+};
 
 export const handler: Handler = async (event) => {
   // Handle CORS
@@ -33,22 +49,36 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const result = await sql`
-      SELECT 
-        id,
-        image_id,
-        base64_data,
-        mime_type,
-        original_name,
-        prompt,
-        mode,
-        created_at
-      FROM image_history
-      WHERE user_id = ${userId}
-      ORDER BY created_at DESC
-      LIMIT ${limit}
-      OFFSET ${offset}
-    `;
+    const supabase = getSupabase();
+    if (!supabase) {
+      return {
+        statusCode: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ error: 'Database connection not configured' }),
+      };
+    }
+
+    const { data: result, error } = await supabase
+      .from('image_history')
+      .select('id, image_id, base64_data, mime_type, original_name, prompt, mode, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      console.error('Error fetching images:', error);
+      return {
+        statusCode: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ error: error.message || 'Internal server error' }),
+      };
+    }
 
     return {
       statusCode: 200,
@@ -56,7 +86,7 @@ export const handler: Handler = async (event) => {
         'Access-Control-Allow-Origin': '*',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(result),
+      body: JSON.stringify(result || []),
     };
   } catch (error: any) {
     console.error('Error fetching images:', error);
@@ -70,4 +100,3 @@ export const handler: Handler = async (event) => {
     };
   }
 };
-

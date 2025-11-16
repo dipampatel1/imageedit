@@ -1,7 +1,23 @@
-import { neon } from '@neondatabase/serverless';
+import { createClient } from '@supabase/supabase-js';
 import type { Handler } from '@netlify/functions';
 
-const sql = neon(process.env.DATABASE_URL!);
+// Initialize Supabase client for server-side operations
+const getSupabase = () => {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    console.error('Supabase configuration missing');
+    return null;
+  }
+  
+  return createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+};
 
 // Tier limits (updated to competitive pricing model)
 const TIER_LIMITS = {
@@ -39,11 +55,38 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const result = await sql`
-      SELECT * FROM user_usage WHERE user_id = ${userId} LIMIT 1
-    `;
+    const supabase = getSupabase();
+    if (!supabase) {
+      return {
+        statusCode: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ error: 'Database connection not configured', canGenerate: false }),
+      };
+    }
 
-    if (result.length === 0) {
+    const { data: usage, error } = await supabase
+      .from('user_usage')
+      .select('*')
+      .eq('user_id', userId)
+      .limit(1)
+      .single();
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+      console.error('Error checking usage:', error);
+      return {
+        statusCode: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ error: error.message || 'Internal server error', canGenerate: false }),
+      };
+    }
+
+    if (!usage) {
       // New user, can generate
       return {
         statusCode: 200,
@@ -61,20 +104,27 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const usage = result[0];
     const now = new Date();
     const periodEnd = new Date(usage.current_period_end);
 
     // Check if period has expired
     if (now > periodEnd) {
       // Period expired, reset usage
-      await sql`
-        UPDATE user_usage
-        SET images_generated = 0,
-            current_period_start = CURRENT_TIMESTAMP,
-            current_period_end = CURRENT_TIMESTAMP + INTERVAL '1 month'
-        WHERE user_id = ${userId}
-      `;
+      const newPeriodEnd = new Date();
+      newPeriodEnd.setMonth(newPeriodEnd.getMonth() + 1);
+      
+      const { error: updateError } = await supabase
+        .from('user_usage')
+        .update({
+          images_generated: 0,
+          current_period_start: new Date().toISOString(),
+          current_period_end: newPeriodEnd.toISOString(),
+        })
+        .eq('user_id', userId);
+
+      if (updateError) {
+        console.error('Error resetting usage period:', updateError);
+      }
       
       return {
         statusCode: 200,
@@ -122,4 +172,3 @@ export const handler: Handler = async (event) => {
     };
   }
 };
-

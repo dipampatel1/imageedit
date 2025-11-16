@@ -38,7 +38,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
 
         try {
             console.log('Calling authService.signUp...');
-            // Sign up the user (creates in Neon Auth or localStorage)
+            // Sign up the user (creates in Supabase Auth or localStorage)
             const user = await authService.signUp(name, email, password);
             console.log('Sign up successful, user:', user);
             
@@ -48,7 +48,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
             let initError: string | null = null;
             
             if (user.userId && user.profile.email) {
-                console.log('Using Neon Auth userId:', user.userId);
+                console.log('Using Supabase Auth userId:', user.userId);
                 try {
                     const result = await initializeUser(user.userId, user.profile.email, user.profile.name);
                     if (result && result.user_id) {

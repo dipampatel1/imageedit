@@ -1,7 +1,23 @@
-import { neon } from '@neondatabase/serverless';
+import { createClient } from '@supabase/supabase-js';
 import type { Handler } from '@netlify/functions';
 
-const sql = neon(process.env.DATABASE_URL!);
+// Initialize Supabase client for server-side operations
+const getSupabase = () => {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    console.error('Supabase configuration missing');
+    return null;
+  }
+  
+  return createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+};
 
 export const handler: Handler = async (event) => {
   // Handle CORS
@@ -42,10 +58,41 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    await sql`
-      INSERT INTO image_history (user_id, image_id, base64_data, mime_type, original_name, prompt, mode)
-      VALUES (${userId}, ${imageId}, ${base64Data}, ${mimeType || 'image/png'}, ${originalName || null}, ${prompt || null}, ${mode || null})
-    `;
+    const supabase = getSupabase();
+    if (!supabase) {
+      return {
+        statusCode: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ error: 'Database connection not configured' }),
+      };
+    }
+
+    const { error } = await supabase
+      .from('image_history')
+      .insert({
+        user_id: userId,
+        image_id: imageId,
+        base64_data: base64Data,
+        mime_type: mimeType || 'image/png',
+        original_name: originalName || null,
+        prompt: prompt || null,
+        mode: mode || null,
+      });
+
+    if (error) {
+      console.error('Error saving image:', error);
+      return {
+        statusCode: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ error: error.message || 'Internal server error' }),
+      };
+    }
 
     return {
       statusCode: 200,
@@ -67,4 +114,3 @@ export const handler: Handler = async (event) => {
     };
   }
 };
-

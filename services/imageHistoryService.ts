@@ -18,7 +18,7 @@ const getUserId = async (): Promise<string | null> => {
   const user = await authService.getCurrentUser();
   if (!user) return null;
   
-  // If we have a userId from Neon Auth, use it directly
+  // If we have a userId from Supabase Auth, use it directly
   if (user.userId) {
     return user.userId;
   }

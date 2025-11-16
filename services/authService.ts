@@ -1,8 +1,9 @@
 
 import type { UserProfile } from '../types';
-import { getStackClient, isNeonAuthConfigured } from './neonAuthService';
+import * as supabaseAuth from './supabaseAuthService';
+import { isSupabaseConfigured } from './supabaseService';
 
-// This service integrates with Neon Auth (Stack Auth) when configured,
+// This service integrates with Supabase Auth when configured,
 // with a localStorage fallback for development/testing.
 
 const USERS_DB_KEY = 'imageedit_users';
@@ -43,85 +44,28 @@ const createSession = (user: any) => {
 export const signUp = async (name: string, email: string, password: string): Promise<{ profile: UserProfile, userId?: string }> => {
     console.log('signUp called with:', { name, email, passwordLength: password.length });
     
-    // Try Neon Auth first if configured
-    if (isNeonAuthConfigured()) {
-        console.log('Neon Auth is configured, attempting to use Stack Auth');
-        const stackClient = await getStackClient();
-        console.log('Stack client:', stackClient ? 'loaded' : 'not loaded');
-        
-        if (stackClient) {
-            try {
-                console.log('Attempting Stack Auth sign up...');
-                
-                // Try different Stack Auth API methods
-                let user = null;
-                
-                // Method 1: signUpWithCredential
-                if (typeof stackClient.signUpWithCredential === 'function') {
-                    console.log('Trying signUpWithCredential...');
-                    user = await stackClient.signUpWithCredential({
-                        email,
-                        password,
-                        displayName: name,
-                    });
-                }
-                // Method 2: signUp
-                else if (typeof stackClient.signUp === 'function') {
-                    console.log('Trying signUp...');
-                    user = await stackClient.signUp({
-                        email,
-                        password,
-                        displayName: name,
-                    });
-                }
-                // Method 3: Check if it's a promise-based API
-                else if (stackClient.user && typeof stackClient.user.signUp === 'function') {
-                    console.log('Trying user.signUp...');
-                    user = await stackClient.user.signUp({
-                        email,
-                        password,
-                        displayName: name,
-                    });
-                }
-                // Method 4: Check for different API structure
-                else {
-                    console.warn('Stack Auth client methods:', Object.keys(stackClient));
-                    throw new Error('Stack Auth sign up method not found. Check Stack Auth SDK version.');
-                }
-                
-                console.log('Stack Auth sign up result:', user);
-                
-                if (user) {
-                    const userId = user.id || user.userId || user.clientUserId || null;
-                    console.log('User created with userId:', userId);
-                    return {
-                        profile: {
-                            name: user.displayName || user.name || name,
-                            email: user.primaryEmail || user.email || email,
-                            imageUrl: user.profileImageUrl || user.imageUrl || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(name)}`,
-                        },
-                        userId: userId || undefined,
-                    };
-                } else {
-                    console.warn('Stack Auth sign up returned null/undefined');
-                    throw new Error('Failed to create account with Stack Auth. User object was null.');
-                }
-            } catch (error: any) {
-                console.error('Stack Auth sign up error:', error);
-                console.error('Error details:', {
-                    message: error?.message,
-                    stack: error?.stack,
-                    name: error?.name,
-                    code: error?.code,
-                });
-                // Fall through to localStorage fallback instead of throwing
-                console.log('Falling back to localStorage...');
-            }
-        } else {
-            console.warn('Stack client is null, falling back to localStorage');
+    // Try Supabase Auth first if configured
+    if (isSupabaseConfigured()) {
+        console.log('Supabase is configured, attempting to use Supabase Auth');
+        try {
+            const result = await supabaseAuth.signUp(name, email, password);
+            console.log('Supabase sign up successful:', result);
+            return {
+                profile: result.profile,
+                userId: result.userId,
+            };
+        } catch (error: any) {
+            console.error('Supabase Auth sign up error:', error);
+            console.error('Error details:', {
+                message: error?.message,
+                stack: error?.stack,
+                name: error?.name,
+            });
+            // Fall through to localStorage fallback instead of throwing
+            console.log('Falling back to localStorage...');
         }
     } else {
-        console.log('Neon Auth not configured, using localStorage fallback');
+        console.log('Supabase not configured, using localStorage fallback');
     }
     
     // Fallback to localStorage
@@ -157,35 +101,17 @@ export const signUp = async (name: string, email: string, password: string): Pro
  * @throws Will throw an error for invalid credentials.
  */
 export const signIn = async (email: string, password: string): Promise<{ profile: UserProfile, userId?: string }> => {
-    // Try Neon Auth first if configured
-    if (isNeonAuthConfigured()) {
-        const stackClient = await getStackClient();
-        if (stackClient) {
-            try {
-                // Stack Auth API - adjust method names based on actual SDK
-                const user = await stackClient.signInWithCredential?.({
-                    email,
-                    password,
-                }) || await stackClient.signIn?.({
-                    email,
-                    password,
-                });
-                
-                if (user) {
-                    const userId = user.id || user.userId || null;
-                    return {
-                        profile: {
-                            name: user.displayName || user.name || email.split('@')[0],
-                            email: user.primaryEmail || user.email || email,
-                            imageUrl: user.profileImageUrl || user.imageUrl || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(email)}`,
-                        },
-                        userId: userId || undefined,
-                    };
-                }
-            } catch (error: any) {
-                console.error('Stack Auth sign in error:', error);
-                throw new Error(error.message || 'Invalid email or password.');
-            }
+    // Try Supabase Auth first if configured
+    if (isSupabaseConfigured()) {
+        try {
+            const result = await supabaseAuth.signIn(email, password);
+            return {
+                profile: result.profile,
+                userId: result.userId,
+            };
+        } catch (error: any) {
+            console.error('Supabase Auth sign in error:', error);
+            throw new Error(error.message || 'Invalid email or password.');
         }
     }
     
@@ -209,15 +135,12 @@ export const signIn = async (email: string, password: string): Promise<{ profile
  * Signs out the current user.
  */
 export const signOut = async (): Promise<void> => {
-    // Try Neon Auth first if configured
-    if (isNeonAuthConfigured()) {
-        const stackClient = await getStackClient();
-        if (stackClient) {
-            try {
-                await stackClient.signOut();
-            } catch (error) {
-                console.error('Error signing out from Neon Auth:', error);
-            }
+    // Try Supabase Auth first if configured
+    if (isSupabaseConfigured()) {
+        try {
+            await supabaseAuth.signOut();
+        } catch (error) {
+            console.error('Error signing out from Supabase:', error);
         }
     }
     
@@ -232,28 +155,18 @@ export const signOut = async (): Promise<void> => {
  * @returns The user session object or null if not signed in.
  */
 export const getCurrentUser = async (): Promise<{ profile: UserProfile, userId?: string } | null> => {
-    // Try Neon Auth first if configured
-    if (isNeonAuthConfigured()) {
-        const stackClient = await getStackClient();
-        if (stackClient) {
-            try {
-                const user = await stackClient.getUser?.() || await stackClient.user;
-                if (user) {
-                    // Get user ID from Stack Auth
-                    const userId = user.id || user.userId || null;
-                    
-                    return {
-                        profile: {
-                            name: user.displayName || user.name || user.primaryEmail?.split('@')[0] || 'User',
-                            email: user.primaryEmail || user.email || '',
-                            imageUrl: user.profileImageUrl || user.imageUrl || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(user.primaryEmail || user.email || 'user')}`,
-                        },
-                        userId: userId || undefined,
-                    };
-                }
-            } catch (error) {
-                console.error('Error getting user from Neon Auth:', error);
+    // Try Supabase Auth first if configured
+    if (isSupabaseConfigured()) {
+        try {
+            const result = await supabaseAuth.getCurrentUser();
+            if (result) {
+                return {
+                    profile: result.profile,
+                    userId: result.userId,
+                };
             }
+        } catch (error) {
+            console.error('Error getting user from Supabase:', error);
         }
     }
     

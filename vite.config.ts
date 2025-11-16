@@ -21,9 +21,9 @@ export default defineConfig(({ mode }) => {
         'import.meta.env.VITE_GEMINI_API_KEY': JSON.stringify(apiKey),
         'import.meta.env.VITE_API_KEY': JSON.stringify(apiKey),
         'import.meta.env.VITE_NETLIFY_FUNCTIONS_URL': JSON.stringify(env.VITE_NETLIFY_FUNCTIONS_URL || '/.netlify/functions'),
-        // Neon Auth (Stack Auth) environment variables
-        'import.meta.env.VITE_STACK_PROJECT_ID': JSON.stringify(env.VITE_STACK_PROJECT_ID || ''),
-        'import.meta.env.VITE_STACK_PUBLISHABLE_CLIENT_KEY': JSON.stringify(env.VITE_STACK_PUBLISHABLE_CLIENT_KEY || ''),
+        // Supabase environment variables
+        'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL || ''),
+        'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY || ''),
         // Stripe environment variables
         'import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY': JSON.stringify(env.VITE_STRIPE_PUBLISHABLE_KEY || env.STRIPE_PUBLISHABLE_KEY || ''),
         'import.meta.env.VITE_STRIPE_STARTER_MONTHLY_PRICE_ID': JSON.stringify(env.VITE_STRIPE_STARTER_MONTHLY_PRICE_ID || env.STRIPE_STARTER_MONTHLY_PRICE_ID || ''),

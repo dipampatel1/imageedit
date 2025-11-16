@@ -4,7 +4,7 @@
 
 # AI Image Editor
 
-AI-powered image editing and generation web application using Google Gemini API, with Neon PostgreSQL database integration.
+AI-powered image editing and generation web application using Google Gemini API, with Supabase PostgreSQL database integration.
 
 ## Features
 
@@ -19,7 +19,8 @@ AI-powered image editing and generation web application using Google Gemini API,
 
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS
 - **AI**: Google Gemini 2.5 Flash Image
-- **Database**: Neon PostgreSQL
+- **Database**: Supabase (PostgreSQL)
+- **Authentication**: Supabase Auth
 - **Backend**: Netlify Functions
 - **Payment**: Stripe
 
@@ -36,12 +37,15 @@ AI-powered image editing and generation web application using Google Gemini API,
    ```env
    VITE_GEMINI_API_KEY=your_gemini_api_key_here
    VITE_NETLIFY_FUNCTIONS_URL=http://localhost:8888/.netlify/functions
-   DATABASE_URL=your_neon_connection_string
    
-   # Optional: Neon Auth (Stack Auth) credentials
-   # Get these from your Neon project after provisioning Neon Auth
-   VITE_STACK_PROJECT_ID=your_stack_project_id
-   VITE_STACK_PUBLISHABLE_CLIENT_KEY=your_publishable_client_key
+   # Supabase Configuration
+   VITE_SUPABASE_URL=https://xxxxx.supabase.co
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   SUPABASE_URL=https://xxxxx.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+   
+   # Optional: For admin panel link
+   VITE_SUPABASE_PROJECT_REF=your_project_ref
    ```
 
 3. Run the app:
@@ -61,27 +65,30 @@ AI-powered image editing and generation web application using Google Gemini API,
 1. Connect your GitHub repository to Netlify
 2. Set environment variables in Netlify Dashboard:
    - `VITE_GEMINI_API_KEY`: Your Gemini API key (must start with VITE_)
-   - `DATABASE_URL`: Your Neon PostgreSQL connection string
-   - `VITE_STACK_PROJECT_ID`: Your Neon Auth project ID (optional, for user authentication)
-   - `VITE_STACK_PUBLISHABLE_CLIENT_KEY`: Your Neon Auth publishable client key (optional)
+   - `SUPABASE_URL`: Your Supabase project URL
+   - `SUPABASE_SERVICE_ROLE_KEY`: Your Supabase service role key (for server-side functions)
+   - `VITE_SUPABASE_URL`: Your Supabase project URL (for client-side)
+   - `VITE_SUPABASE_ANON_KEY`: Your Supabase anon/public key (for client-side)
+   - `VITE_SUPABASE_PROJECT_REF`: Your Supabase project reference (optional, for admin panel)
 3. Deploy!
 
 ## User Authentication
 
 The app includes a complete user management system with:
-- **Sign Up / Sign In**: User registration and authentication
+- **Sign Up / Sign In**: User registration and authentication via Supabase Auth
 - **User Portal**: Profile management and subscription status
-- **Neon Auth Integration**: Optional integration with Neon Auth (Stack Auth) for production-ready authentication
-- **localStorage Fallback**: Works without Neon Auth for development/testing
+- **Supabase Auth**: Production-ready authentication with Supabase
+- **localStorage Fallback**: Works without Supabase for development/testing
 
-### Setting Up Neon Auth (Optional)
+### Setting Up Supabase
 
-1. Go to your Neon project dashboard
-2. Navigate to the Neon Auth section
-3. Provision Neon Auth for your project
-4. Copy your Project ID and Publishable Client Key
-5. Add them to your environment variables (see above)
+See [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for detailed instructions on:
+- Creating a Supabase project
+- Getting your credentials
+- Setting up the database schema
+- Configuring environment variables
+- Setting up Row Level Security (RLS) policies
 
-If Neon Auth is not configured, the app will automatically use localStorage for authentication (suitable for development/testing).
+If Supabase is not configured, the app will automatically use localStorage for authentication (suitable for development/testing).
 
 The site will automatically build and deploy on every push to main.

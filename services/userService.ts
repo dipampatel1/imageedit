@@ -1,5 +1,5 @@
 // Service to get complete user information including subscription tier
-// This combines auth data (from Neon Auth) with subscription data (from user_usage table)
+// This combines auth data (from Supabase Auth) with subscription data (from user_usage table)
 
 import * as authService from './authService';
 import { getUserUsage, type UserUsage } from './usageService';
@@ -22,11 +22,11 @@ export interface CompleteUser {
  * This is the main function to use instead of getCurrentUser() when you need subscription info
  */
 export const getCompleteUser = async (): Promise<CompleteUser | null> => {
-  // Get auth info (from Neon Auth or localStorage)
+  // Get auth info (from Supabase Auth or localStorage)
   const authUser = await authService.getCurrentUser();
   if (!authUser) return null;
 
-  // Get user ID - from Neon Auth if available, or generate from email
+  // Get user ID - from Supabase Auth if available, or generate from email
   let userId: string;
   if (authUser.userId) {
     userId = authUser.userId;

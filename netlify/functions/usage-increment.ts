@@ -1,7 +1,23 @@
-import { neon } from '@neondatabase/serverless';
+import { createClient } from '@supabase/supabase-js';
 import type { Handler } from '@netlify/functions';
 
-const sql = neon(process.env.DATABASE_URL!);
+// Initialize Supabase client for server-side operations
+const getSupabase = () => {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    console.error('Supabase configuration missing');
+    return null;
+  }
+  
+  return createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+};
 
 export const handler: Handler = async (event) => {
   // Handle CORS
@@ -42,57 +58,142 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    // Check if period has expired and reset if needed
-    const currentUsage = await sql`
-      SELECT * FROM user_usage WHERE user_id = ${userId} LIMIT 1
-    `;
-
-    if (currentUsage.length === 0) {
-      // Create new usage record
-      await sql`
-        INSERT INTO user_usage (user_id, email, tier, user_level, images_generated, current_period_start, current_period_end)
-        VALUES (${userId}, ${email || 'unknown@example.com'}, 'free', 'user', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 month')
-        ON CONFLICT (user_id) DO UPDATE SET 
-          images_generated = user_usage.images_generated + 1,
-          email = EXCLUDED.email
-      `;
-    } else {
-      const usage = currentUsage[0];
-      const now = new Date();
-      const periodEnd = new Date(usage.current_period_end);
-
-      if (now > periodEnd) {
-        // Reset period
-        await sql`
-          UPDATE user_usage
-          SET images_generated = 1,
-              current_period_start = CURRENT_TIMESTAMP,
-              current_period_end = CURRENT_TIMESTAMP + INTERVAL '1 month'
-          WHERE user_id = ${userId}
-        `;
-      } else {
-        // Increment usage
-        await sql`
-          UPDATE user_usage
-          SET images_generated = images_generated + 1
-          WHERE user_id = ${userId}
-        `;
-      }
+    const supabase = getSupabase();
+    if (!supabase) {
+      return {
+        statusCode: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ error: 'Database connection not configured' }),
+      };
     }
 
-    // Return updated usage
-    const updated = await sql`
-      SELECT * FROM user_usage WHERE user_id = ${userId} LIMIT 1
-    `;
+    // Check if period has expired and reset if needed
+    const { data: currentUsage, error: fetchError } = await supabase
+      .from('user_usage')
+      .select('*')
+      .eq('user_id', userId)
+      .limit(1)
+      .single();
 
-    return {
-      statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(updated[0] || null),
-    };
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error('Error fetching current usage:', fetchError);
+    }
+
+    if (!currentUsage) {
+      // Create new usage record
+      const periodEnd = new Date();
+      periodEnd.setMonth(periodEnd.getMonth() + 1);
+      
+      const { data: newUsage, error: insertError } = await supabase
+        .from('user_usage')
+        .insert({
+          user_id: userId,
+          email: email || 'unknown@example.com',
+          tier: 'free',
+          user_level: 'user',
+          images_generated: 1,
+          current_period_start: new Date().toISOString(),
+          current_period_end: periodEnd.toISOString(),
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Error creating usage record:', insertError);
+        return {
+          statusCode: 500,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ error: insertError.message || 'Internal server error' }),
+        };
+      }
+
+      return {
+        statusCode: 200,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newUsage || null),
+      };
+    }
+
+    const now = new Date();
+    const periodEnd = new Date(currentUsage.current_period_end);
+
+    if (now > periodEnd) {
+      // Reset period
+      const newPeriodEnd = new Date();
+      newPeriodEnd.setMonth(newPeriodEnd.getMonth() + 1);
+      
+      const { data: updated, error: updateError } = await supabase
+        .from('user_usage')
+        .update({
+          images_generated: 1,
+          current_period_start: new Date().toISOString(),
+          current_period_end: newPeriodEnd.toISOString(),
+        })
+        .eq('user_id', userId)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Error resetting usage period:', updateError);
+        return {
+          statusCode: 500,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ error: updateError.message || 'Internal server error' }),
+        };
+      }
+
+      return {
+        statusCode: 200,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updated || null),
+      };
+    } else {
+      // Increment usage
+      const { data: updated, error: updateError } = await supabase
+        .from('user_usage')
+        .update({
+          images_generated: currentUsage.images_generated + 1,
+        })
+        .eq('user_id', userId)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Error incrementing usage:', updateError);
+        return {
+          statusCode: 500,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ error: updateError.message || 'Internal server error' }),
+        };
+      }
+
+      return {
+        statusCode: 200,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updated || null),
+      };
+    }
   } catch (error: any) {
     console.error('Error incrementing usage:', error);
     return {
@@ -105,4 +206,3 @@ export const handler: Handler = async (event) => {
     };
   }
 };
-

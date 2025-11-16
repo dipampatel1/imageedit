@@ -2,15 +2,15 @@ import React from 'react';
 
 interface AdminPanelProps {
   onClose: () => void;
-  neonProjectId?: string;
+  supabaseProjectRef?: string;
 }
 
-export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, neonProjectId }) => {
-  // Construct Neon Console URL
-  // Format: https://console.neon.tech/app/projects/{project_id}
-  const neonConsoleUrl = neonProjectId 
-    ? `https://console.neon.tech/app/projects/${neonProjectId}`
-    : 'https://console.neon.tech';
+export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, supabaseProjectRef }) => {
+  // Construct Supabase Dashboard URL
+  // Format: https://supabase.com/dashboard/project/{project_ref}
+  const supabaseDashboardUrl = supabaseProjectRef 
+    ? `https://supabase.com/dashboard/project/${supabaseProjectRef}`
+    : 'https://supabase.com/dashboard';
 
   return (
     <div 
@@ -35,7 +35,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, neonProjectId }
         </div>
 
         <div className="p-6 space-y-6">
-          {/* Neon Console Link */}
+          {/* Supabase Dashboard Link */}
           <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-6">
             <h3 className="text-xl font-semibold text-white mb-3 flex items-center gap-2">
               <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -44,10 +44,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, neonProjectId }
               Database Management
             </h3>
             <p className="text-slate-300 mb-4">
-              Access the Neon Console to manage users, view database tables, run SQL queries, and monitor your database.
+              Access the Supabase Dashboard to manage users, view database tables, run SQL queries, and monitor your database.
             </p>
             <a
-              href={neonConsoleUrl}
+              href={supabaseDashboardUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded-lg transition-colors"
@@ -55,7 +55,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, neonProjectId }
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
               </svg>
-              Open Neon Console
+              Open Supabase Dashboard
             </a>
           </div>
 
@@ -99,7 +99,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, neonProjectId }
           {/* Quick SQL Examples */}
           <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-6">
             <h3 className="text-xl font-semibold text-white mb-3">Quick SQL Queries</h3>
-            <p className="text-slate-400 text-sm mb-4">Use these queries in the Neon Console SQL Editor:</p>
+            <p className="text-slate-400 text-sm mb-4">Use these queries in the Supabase SQL Editor:</p>
             
             <div className="space-y-3">
               <div>
