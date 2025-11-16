@@ -17,8 +17,10 @@ declare const Stripe: any;
 // =================================================================================
 
 // 1. Your Stripe publishable key (Stripe Dashboard > Developers > API keys)
-//    Example: REACT_APP_STRIPE_PUBLISHABLE_KEY=pk_live_...
-const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY || 'pk_test_51HufXuL14f6l1f2PGy5LqI3rwev4tFw24T8X7bQpWIO2i7I8s4q4g9K2f8jG4j1h3n7c9f8d7g6e5d4c'; 
+//    For Vite, use VITE_ prefix: VITE_STRIPE_PUBLISHABLE_KEY=pk_live_...
+const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 
+                                 (typeof process !== 'undefined' && process.env?.STRIPE_PUBLISHABLE_KEY) || 
+                                 'pk_test_51HufXuL14f6l1f2PGy5LqI3rwev4tFw24T8X7bQpWIO2i7I8s4q4g9K2f8jG4j1h3n7c9f8d7g6e5d4c'; 
 
 // 2. Your Stripe Price IDs (Stripe Dashboard > Products > Select Product > Pricing)
 // Competitive Pricing Model (Based on Market Research):
@@ -27,18 +29,31 @@ const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY || 'pk_test_51
 // - Pro: $24.99/month - 1,000 images included, $0.05 per image after
 // - Business: $79/month - 5,000 images included, $0.03 per image after
 // - Annual discount: 17% off (industry standard)
+// For Vite, use VITE_ prefix for all environment variables
 const STRIPE_PRICE_IDS = {
     starter: {
-        monthly: process.env.STRIPE_STARTER_MONTHLY_PRICE_ID || 'price_starter_monthly',
-        annual: process.env.STRIPE_STARTER_ANNUAL_PRICE_ID || 'price_starter_annual',
+        monthly: import.meta.env.VITE_STRIPE_STARTER_MONTHLY_PRICE_ID || 
+                 (typeof process !== 'undefined' && process.env?.STRIPE_STARTER_MONTHLY_PRICE_ID) || 
+                 'price_starter_monthly',
+        annual: import.meta.env.VITE_STRIPE_STARTER_ANNUAL_PRICE_ID || 
+                (typeof process !== 'undefined' && process.env?.STRIPE_STARTER_ANNUAL_PRICE_ID) || 
+                'price_starter_annual',
     },
     pro: {
-        monthly: process.env.STRIPE_PRO_MONTHLY_PRICE_ID || 'price_pro_monthly',
-        annual: process.env.STRIPE_PRO_ANNUAL_PRICE_ID || 'price_pro_annual',
+        monthly: import.meta.env.VITE_STRIPE_PRO_MONTHLY_PRICE_ID || 
+                 (typeof process !== 'undefined' && process.env?.STRIPE_PRO_MONTHLY_PRICE_ID) || 
+                 'price_pro_monthly',
+        annual: import.meta.env.VITE_STRIPE_PRO_ANNUAL_PRICE_ID || 
+                (typeof process !== 'undefined' && process.env?.STRIPE_PRO_ANNUAL_PRICE_ID) || 
+                'price_pro_annual',
     },
     business: {
-        monthly: process.env.STRIPE_BUSINESS_MONTHLY_PRICE_ID || 'price_business_monthly',
-        annual: process.env.STRIPE_BUSINESS_ANNUAL_PRICE_ID || 'price_business_annual',
+        monthly: import.meta.env.VITE_STRIPE_BUSINESS_MONTHLY_PRICE_ID || 
+                 (typeof process !== 'undefined' && process.env?.STRIPE_BUSINESS_MONTHLY_PRICE_ID) || 
+                 'price_business_monthly',
+        annual: import.meta.env.VITE_STRIPE_BUSINESS_ANNUAL_PRICE_ID || 
+                (typeof process !== 'undefined' && process.env?.STRIPE_BUSINESS_ANNUAL_PRICE_ID) || 
+                'price_business_annual',
     },
 };
 

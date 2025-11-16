@@ -24,6 +24,14 @@ export default defineConfig(({ mode }) => {
         // Neon Auth (Stack Auth) environment variables
         'import.meta.env.VITE_STACK_PROJECT_ID': JSON.stringify(env.VITE_STACK_PROJECT_ID || ''),
         'import.meta.env.VITE_STACK_PUBLISHABLE_CLIENT_KEY': JSON.stringify(env.VITE_STACK_PUBLISHABLE_CLIENT_KEY || ''),
+        // Stripe environment variables
+        'import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY': JSON.stringify(env.VITE_STRIPE_PUBLISHABLE_KEY || env.STRIPE_PUBLISHABLE_KEY || ''),
+        'import.meta.env.VITE_STRIPE_STARTER_MONTHLY_PRICE_ID': JSON.stringify(env.VITE_STRIPE_STARTER_MONTHLY_PRICE_ID || env.STRIPE_STARTER_MONTHLY_PRICE_ID || ''),
+        'import.meta.env.VITE_STRIPE_STARTER_ANNUAL_PRICE_ID': JSON.stringify(env.VITE_STRIPE_STARTER_ANNUAL_PRICE_ID || env.STRIPE_STARTER_ANNUAL_PRICE_ID || ''),
+        'import.meta.env.VITE_STRIPE_PRO_MONTHLY_PRICE_ID': JSON.stringify(env.VITE_STRIPE_PRO_MONTHLY_PRICE_ID || env.STRIPE_PRO_MONTHLY_PRICE_ID || ''),
+        'import.meta.env.VITE_STRIPE_PRO_ANNUAL_PRICE_ID': JSON.stringify(env.VITE_STRIPE_PRO_ANNUAL_PRICE_ID || env.STRIPE_PRO_ANNUAL_PRICE_ID || ''),
+        'import.meta.env.VITE_STRIPE_BUSINESS_MONTHLY_PRICE_ID': JSON.stringify(env.VITE_STRIPE_BUSINESS_MONTHLY_PRICE_ID || env.STRIPE_BUSINESS_MONTHLY_PRICE_ID || ''),
+        'import.meta.env.VITE_STRIPE_BUSINESS_ANNUAL_PRICE_ID': JSON.stringify(env.VITE_STRIPE_BUSINESS_ANNUAL_PRICE_ID || env.STRIPE_BUSINESS_ANNUAL_PRICE_ID || ''),
       },
       resolve: {
         alias: {

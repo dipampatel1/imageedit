@@ -40,22 +40,30 @@
 
 ### Required Environment Variables:
 
+**For Vite projects, use the `VITE_` prefix:**
+
 ```
-STRIPE_STARTER_MONTHLY_PRICE_ID = price_xxxxxxxxxxxxx
-STRIPE_STARTER_ANNUAL_PRICE_ID = price_xxxxxxxxxxxxx
-STRIPE_PRO_MONTHLY_PRICE_ID = price_xxxxxxxxxxxxx
-STRIPE_PRO_ANNUAL_PRICE_ID = price_xxxxxxxxxxxxx
-STRIPE_BUSINESS_MONTHLY_PRICE_ID = price_xxxxxxxxxxxxx
-STRIPE_BUSINESS_ANNUAL_PRICE_ID = price_xxxxxxxxxxxxx
+VITE_STRIPE_STARTER_MONTHLY_PRICE_ID = price_xxxxxxxxxxxxx
+VITE_STRIPE_STARTER_ANNUAL_PRICE_ID = price_xxxxxxxxxxxxx
+VITE_STRIPE_PRO_MONTHLY_PRICE_ID = price_xxxxxxxxxxxxx
+VITE_STRIPE_PRO_ANNUAL_PRICE_ID = price_xxxxxxxxxxxxx
+VITE_STRIPE_BUSINESS_MONTHLY_PRICE_ID = price_xxxxxxxxxxxxx
+VITE_STRIPE_BUSINESS_ANNUAL_PRICE_ID = price_xxxxxxxxxxxxx
 ```
+
+**Note:** The code also supports variables without the `VITE_` prefix for backward compatibility, but `VITE_` prefix is recommended for Vite projects.
 
 ### Also Add Your Stripe Publishable Key:
 
+**For Vite projects, use the `VITE_` prefix:**
+
 ```
-STRIPE_PUBLISHABLE_KEY = pk_live_xxxxxxxxxxxxx
+VITE_STRIPE_PUBLISHABLE_KEY = pk_live_xxxxxxxxxxxxx
 ```
 
 (Or `pk_test_...` for testing)
+
+**Note:** The code also supports `STRIPE_PUBLISHABLE_KEY` without the prefix for backward compatibility, but `VITE_` prefix is recommended for Vite projects.
 
 ## Step 3: Verify Environment Variables
 
