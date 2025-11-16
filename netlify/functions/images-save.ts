@@ -4,7 +4,8 @@ import type { Handler } from '@netlify/functions';
 // Initialize Supabase client for server-side operations
 const getSupabase = () => {
   const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // Support both SUPABASE_SERVICE_ROLE_KEY and SUPABASE_KEY (for self-hosted)
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
   
   if (!supabaseUrl || !supabaseServiceRoleKey) {
     console.error('Supabase configuration missing');
