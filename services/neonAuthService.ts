@@ -24,23 +24,34 @@ export const getStackClient = async (): Promise<any> => {
     const projectId = import.meta.env.VITE_STACK_PROJECT_ID;
     const publishableClientKey = import.meta.env.VITE_STACK_PUBLISHABLE_CLIENT_KEY;
     
+    console.log('Stack Auth config check:', { 
+      hasProjectId: !!projectId, 
+      hasPublishableKey: !!publishableClientKey,
+      projectId: projectId?.substring(0, 10) + '...',
+    });
+    
     if (!projectId || !publishableClientKey) {
+      console.warn('Stack Auth not configured - missing credentials');
       return null;
     }
 
     const module = await loadStackAuth();
     if (module) {
       try {
+        console.log('Stack Auth module loaded, initializing client...');
         const { StackClientApp } = module;
         stackClient = new StackClientApp({
           projectId,
           publishableClientKey,
         });
+        console.log('Stack Auth client initialized successfully');
+        console.log('Stack client methods:', Object.keys(stackClient));
       } catch (error) {
-        console.warn('Failed to initialize Stack Auth:', error);
+        console.error('Failed to initialize Stack Auth:', error);
         return null;
       }
     } else {
+      console.warn('Stack Auth module not available');
       return null;
     }
   }

@@ -41,24 +41,59 @@ const createSession = (user: any) => {
  * @throws Will throw an error if the email is already in use.
  */
 export const signUp = async (name: string, email: string, password: string): Promise<{ profile: UserProfile, userId?: string }> => {
+    console.log('signUp called with:', { name, email, passwordLength: password.length });
+    
     // Try Neon Auth first if configured
     if (isNeonAuthConfigured()) {
+        console.log('Neon Auth is configured, attempting to use Stack Auth');
         const stackClient = await getStackClient();
+        console.log('Stack client:', stackClient ? 'loaded' : 'not loaded');
+        
         if (stackClient) {
             try {
-                // Stack Auth API - adjust method names based on actual SDK
-                const user = await stackClient.signUpWithCredential?.({
-                    email,
-                    password,
-                    displayName: name,
-                }) || await stackClient.signUp?.({
-                    email,
-                    password,
-                    displayName: name,
-                });
+                console.log('Attempting Stack Auth sign up...');
+                
+                // Try different Stack Auth API methods
+                let user = null;
+                
+                // Method 1: signUpWithCredential
+                if (typeof stackClient.signUpWithCredential === 'function') {
+                    console.log('Trying signUpWithCredential...');
+                    user = await stackClient.signUpWithCredential({
+                        email,
+                        password,
+                        displayName: name,
+                    });
+                }
+                // Method 2: signUp
+                else if (typeof stackClient.signUp === 'function') {
+                    console.log('Trying signUp...');
+                    user = await stackClient.signUp({
+                        email,
+                        password,
+                        displayName: name,
+                    });
+                }
+                // Method 3: Check if it's a promise-based API
+                else if (stackClient.user && typeof stackClient.user.signUp === 'function') {
+                    console.log('Trying user.signUp...');
+                    user = await stackClient.user.signUp({
+                        email,
+                        password,
+                        displayName: name,
+                    });
+                }
+                // Method 4: Check for different API structure
+                else {
+                    console.warn('Stack Auth client methods:', Object.keys(stackClient));
+                    throw new Error('Stack Auth sign up method not found. Check Stack Auth SDK version.');
+                }
+                
+                console.log('Stack Auth sign up result:', user);
                 
                 if (user) {
-                    const userId = user.id || user.userId || null;
+                    const userId = user.id || user.userId || user.clientUserId || null;
+                    console.log('User created with userId:', userId);
                     return {
                         profile: {
                             name: user.displayName || user.name || name,
@@ -67,12 +102,26 @@ export const signUp = async (name: string, email: string, password: string): Pro
                         },
                         userId: userId || undefined,
                     };
+                } else {
+                    console.warn('Stack Auth sign up returned null/undefined');
+                    throw new Error('Failed to create account with Stack Auth. User object was null.');
                 }
             } catch (error: any) {
                 console.error('Stack Auth sign up error:', error);
-                throw new Error(error.message || 'Failed to create account. Please try again.');
+                console.error('Error details:', {
+                    message: error?.message,
+                    stack: error?.stack,
+                    name: error?.name,
+                    code: error?.code,
+                });
+                // Fall through to localStorage fallback instead of throwing
+                console.log('Falling back to localStorage...');
             }
+        } else {
+            console.warn('Stack client is null, falling back to localStorage');
         }
+    } else {
+        console.log('Neon Auth not configured, using localStorage fallback');
     }
     
     // Fallback to localStorage

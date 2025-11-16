@@ -25,16 +25,22 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
 
     const handleSignUp = async (e: React.FormEvent) => {
         e.preventDefault();
+        console.log('handleSignUp called');
         setError(null);
+        
         if (!name || !email || !password) {
             setError("All fields are required.");
             return;
         }
+        
+        console.log('Form validation passed, starting sign up...');
         setIsLoading(true);
 
         try {
+            console.log('Calling authService.signUp...');
             // Sign up the user (creates in Neon Auth or localStorage)
             const user = await authService.signUp(name, email, password);
+            console.log('Sign up successful, user:', user);
             
             // Initialize user in database (create user_usage record)
             console.log('User signed up, attempting to initialize in database:', user);
@@ -76,10 +82,23 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
                 console.warn('Cannot initialize user - missing userId and email');
             }
             
+            console.log('Calling onAuthSuccess...');
             onAuthSuccess(); // Automatically sign in after successful sign-up
+            console.log('Sign up flow completed successfully');
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+            console.error('Sign up error caught:', err);
+            const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
+            console.error('Setting error message:', errorMessage);
+            setError(errorMessage);
+            // Make sure error is visible
+            setTimeout(() => {
+                const errorDiv = document.querySelector('.bg-red-900\\/50');
+                if (errorDiv) {
+                    errorDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 100);
         } finally {
+            console.log('Setting isLoading to false');
             setIsLoading(false);
         }
     };
