@@ -16,6 +16,14 @@ const getSupabase = () => {
     return null;
   }
   
+  // Log key info for debugging (without exposing the full key)
+  console.log('Supabase config:', {
+    url: supabaseUrl,
+    keyLength: supabaseServiceRoleKey?.length || 0,
+    keyPrefix: supabaseServiceRoleKey?.substring(0, 20) || 'none',
+    keySource: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SUPABASE_SERVICE_ROLE_KEY' : 'SUPABASE_KEY',
+  });
+  
   return createClient(supabaseUrl, supabaseServiceRoleKey, {
     auth: {
       autoRefreshToken: false,
@@ -96,8 +104,22 @@ export const handler: Handler = async (event) => {
       .limit(1)
       .single();
 
-    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
-      console.error('Error checking existing user:', checkError);
+    if (checkError) {
+      if (checkError.code === 'PGRST116') {
+        // PGRST116 = no rows returned (this is expected for new users)
+        console.log('User does not exist (expected for new sign-ups)');
+      } else {
+        console.error('Error checking existing user:', {
+          message: checkError.message,
+          code: checkError.code,
+          details: checkError.details,
+          hint: checkError.hint,
+        });
+        // If it's an auth error, provide helpful message
+        if (checkError.message?.includes('authentication') || checkError.message?.includes('Invalid')) {
+          console.error('⚠️ Authentication error - check your API key. For self-hosted Supabase, you may need the service_role key, not the anon key.');
+        }
+      }
     }
 
     console.log('Existing user check result:', existing ? 'exists' : 'not found');
@@ -156,14 +178,29 @@ export const handler: Handler = async (event) => {
     console.log('Insert error:', insertError);
 
     if (insertError) {
-      console.error('Error creating user:', insertError);
+      console.error('Error creating user:', {
+        message: insertError.message,
+        code: insertError.code,
+        details: insertError.details,
+        hint: insertError.hint,
+      });
+      
+      // Provide helpful error message for auth issues
+      let errorMessage = insertError.message || 'Failed to create user record';
+      if (insertError.message?.includes('authentication') || insertError.message?.includes('Invalid')) {
+        errorMessage = 'Invalid API key. For self-hosted Supabase, ensure you\'re using the service_role key (not anon key) and that it has the correct permissions.';
+      }
+      
       return {
         statusCode: 500,
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ error: insertError.message || 'Failed to create user record' }),
+        body: JSON.stringify({ 
+          error: errorMessage,
+          hint: 'Check that your SUPABASE_KEY or SUPABASE_SERVICE_ROLE_KEY is correct and has admin permissions',
+        }),
       };
     }
 
