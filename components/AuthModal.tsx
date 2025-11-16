@@ -44,8 +44,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
             
             // Initialize user in database (create user_usage record)
             console.log('User signed up, attempting to initialize in database:', user);
-            
-            // Initialize user in database (create user_usage record)
             let initSuccess = false;
             let initError: string | null = null;
             
