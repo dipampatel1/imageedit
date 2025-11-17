@@ -201,10 +201,8 @@ export const redirectToCheckout = async (tier: 'starter' | 'pro' | 'business', b
       successUrl: successUrl,
       cancelUrl: cancelUrl,
       customerEmail: userEmail, // Pass the user's email to Stripe
-      metadata: {
-        tier: tier,
-        billingCycle: billingCycle,
-      },
+      // Note: metadata is not supported in redirectToCheckout
+      // Metadata should be set on the Price or Product in Stripe Dashboard, or via webhooks after checkout
     });
 
     if (error) {
