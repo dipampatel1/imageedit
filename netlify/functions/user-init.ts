@@ -1,35 +1,16 @@
-import { createClient } from '@supabase/supabase-js';
+import { neon } from '@neondatabase/serverless';
 import type { Handler } from '@netlify/functions';
 
-// Initialize Supabase client for server-side operations
-const getSupabase = () => {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  // Support both SUPABASE_SERVICE_ROLE_KEY and SUPABASE_KEY (for self-hosted)
-  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+// Initialize Neon database client
+const getNeonClient = () => {
+  const databaseUrl = process.env.DATABASE_URL;
   
-  if (!supabaseUrl || !supabaseServiceRoleKey) {
-    console.error('Supabase configuration missing:', {
-      hasUrl: !!supabaseUrl,
-      hasServiceRoleKey: !!supabaseServiceRoleKey,
-      checkedKeys: ['SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_KEY'],
-    });
+  if (!databaseUrl) {
+    console.error('DATABASE_URL is not set in environment variables');
     return null;
   }
   
-  // Log key info for debugging (without exposing the full key)
-  console.log('Supabase config:', {
-    url: supabaseUrl,
-    keyLength: supabaseServiceRoleKey?.length || 0,
-    keyPrefix: supabaseServiceRoleKey?.substring(0, 20) || 'none',
-    keySource: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SUPABASE_SERVICE_ROLE_KEY' : 'SUPABASE_KEY',
-  });
-  
-  return createClient(supabaseUrl, supabaseServiceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+  return neon(databaseUrl);
 };
 
 /**
@@ -81,69 +62,40 @@ export const handler: Handler = async (event) => {
       };
     }
     
-    // Check Supabase configuration
-    const supabase = getSupabase();
-    if (!supabase) {
-      console.error('Supabase client not available');
+    // Check Neon configuration
+    const sql = getNeonClient();
+    if (!sql) {
+      console.error('Neon client not available');
       return {
         statusCode: 500,
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ error: 'Database connection not configured. Check SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.' }),
+        body: JSON.stringify({ error: 'Database connection not configured. Check DATABASE_URL.' }),
       };
     }
 
     // Check if user already exists
     console.log('Checking if user exists:', userId);
-    const { data: existing, error: checkError } = await supabase
-      .from('user_usage')
-      .select('user_id')
-      .eq('user_id', userId)
-      .limit(1)
-      .single();
+    const existing = await sql`
+      SELECT user_id 
+      FROM user_usage 
+      WHERE user_id = ${userId}
+      LIMIT 1
+    `;
 
-    if (checkError) {
-      if (checkError.code === 'PGRST116') {
-        // PGRST116 = no rows returned (this is expected for new users)
-        console.log('User does not exist (expected for new sign-ups)');
-      } else {
-        console.error('Error checking existing user:', {
-          message: checkError.message,
-          code: checkError.code,
-          details: checkError.details,
-          hint: checkError.hint,
-        });
-        // If it's an auth error, provide helpful message
-        if (checkError.message?.includes('authentication') || checkError.message?.includes('Invalid')) {
-          console.error('⚠️ Authentication error - check your API key. For self-hosted Supabase, you may need the service_role key, not the anon key.');
-        }
-      }
-    }
+    console.log('Existing user check result:', existing.length > 0 ? 'exists' : 'not found');
 
-    console.log('Existing user check result:', existing ? 'exists' : 'not found');
-
-    if (existing) {
+    if (existing.length > 0) {
       // User already exists, return existing record
       console.log('User already exists, returning existing record');
-      const { data: user, error: fetchError } = await supabase
-        .from('user_usage')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      if (fetchError) {
-        console.error('Error fetching existing user:', fetchError);
-        return {
-          statusCode: 500,
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ error: fetchError.message }),
-        };
-      }
+      const [user] = await sql`
+        SELECT * 
+        FROM user_usage 
+        WHERE user_id = ${userId}
+        LIMIT 1
+      `;
 
       return {
         statusCode: 200,
@@ -160,49 +112,13 @@ export const handler: Handler = async (event) => {
     const periodEnd = new Date();
     periodEnd.setMonth(periodEnd.getMonth() + 1);
     
-    const { data: newUser, error: insertError } = await supabase
-      .from('user_usage')
-      .insert({
-        user_id: userId,
-        email: email,
-        tier: 'free',
-        user_level: 'user',
-        images_generated: 0,
-        current_period_start: new Date().toISOString(),
-        current_period_end: periodEnd.toISOString(),
-      })
-      .select()
-      .single();
+    const [newUser] = await sql`
+      INSERT INTO user_usage (user_id, email, tier, user_level, images_generated, current_period_start, current_period_end)
+      VALUES (${userId}, ${email}, 'free', 'user', 0, ${new Date().toISOString()}, ${periodEnd.toISOString()})
+      RETURNING *
+    `;
 
     console.log('Insert result:', newUser);
-    console.log('Insert error:', insertError);
-
-    if (insertError) {
-      console.error('Error creating user:', {
-        message: insertError.message,
-        code: insertError.code,
-        details: insertError.details,
-        hint: insertError.hint,
-      });
-      
-      // Provide helpful error message for auth issues
-      let errorMessage = insertError.message || 'Failed to create user record';
-      if (insertError.message?.includes('authentication') || insertError.message?.includes('Invalid')) {
-        errorMessage = 'Invalid API key. For self-hosted Supabase, ensure you\'re using the service_role key (not anon key) and that it has the correct permissions.';
-      }
-      
-      return {
-        statusCode: 500,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          error: errorMessage,
-          hint: 'Check that your SUPABASE_KEY or SUPABASE_SERVICE_ROLE_KEY is correct and has admin permissions',
-        }),
-      };
-    }
 
     if (!newUser) {
       console.error('User was not created - insert returned null');
@@ -236,4 +152,3 @@ export const handler: Handler = async (event) => {
     };
   }
 };
-

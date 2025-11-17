@@ -1,23 +1,16 @@
-import { createClient } from '@supabase/supabase-js';
+import { neon } from '@neondatabase/serverless';
 import type { Handler } from '@netlify/functions';
 
-// Initialize Supabase client for server-side operations
-const getSupabase = () => {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  // Support both SUPABASE_SERVICE_ROLE_KEY and SUPABASE_KEY (for self-hosted)
-  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+// Initialize Neon database client
+const getNeonClient = () => {
+  const databaseUrl = process.env.DATABASE_URL;
   
-  if (!supabaseUrl || !supabaseServiceRoleKey) {
-    console.error('Supabase configuration missing');
+  if (!databaseUrl) {
+    console.error('DATABASE_URL is not set in environment variables');
     return null;
   }
   
-  return createClient(supabaseUrl, supabaseServiceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+  return neon(databaseUrl);
 };
 
 // Tier limits (updated to competitive pricing model)
@@ -56,8 +49,8 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const supabase = getSupabase();
-    if (!supabase) {
+    const sql = getNeonClient();
+    if (!sql) {
       return {
         statusCode: 500,
         headers: {
@@ -68,26 +61,14 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const { data: usage, error } = await supabase
-      .from('user_usage')
-      .select('*')
-      .eq('user_id', userId)
-      .limit(1)
-      .single();
+    const usage = await sql`
+      SELECT * 
+      FROM user_usage 
+      WHERE user_id = ${userId}
+      LIMIT 1
+    `;
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-      console.error('Error checking usage:', error);
-      return {
-        statusCode: 500,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ error: error.message || 'Internal server error', canGenerate: false }),
-      };
-    }
-
-    if (!usage) {
+    if (usage.length === 0) {
       // New user, can generate
       return {
         statusCode: 200,
@@ -105,8 +86,9 @@ export const handler: Handler = async (event) => {
       };
     }
 
+    const userUsage = usage[0];
     const now = new Date();
-    const periodEnd = new Date(usage.current_period_end);
+    const periodEnd = new Date(userUsage.current_period_end);
 
     // Check if period has expired
     if (now > periodEnd) {
@@ -114,18 +96,14 @@ export const handler: Handler = async (event) => {
       const newPeriodEnd = new Date();
       newPeriodEnd.setMonth(newPeriodEnd.getMonth() + 1);
       
-      const { error: updateError } = await supabase
-        .from('user_usage')
-        .update({
-          images_generated: 0,
-          current_period_start: new Date().toISOString(),
-          current_period_end: newPeriodEnd.toISOString(),
-        })
-        .eq('user_id', userId);
-
-      if (updateError) {
-        console.error('Error resetting usage period:', updateError);
-      }
+      await sql`
+        UPDATE user_usage
+        SET 
+          images_generated = 0,
+          current_period_start = ${new Date().toISOString()},
+          current_period_end = ${newPeriodEnd.toISOString()}
+        WHERE user_id = ${userId}
+      `;
       
       return {
         statusCode: 200,
@@ -135,16 +113,16 @@ export const handler: Handler = async (event) => {
         },
         body: JSON.stringify({
           canGenerate: true,
-          tier: usage.tier,
+          tier: userUsage.tier,
           imagesGenerated: 0,
-          limit: TIER_LIMITS[usage.tier as keyof typeof TIER_LIMITS] || TIER_LIMITS.free,
-          remaining: TIER_LIMITS[usage.tier as keyof typeof TIER_LIMITS] || TIER_LIMITS.free,
+          limit: TIER_LIMITS[userUsage.tier as keyof typeof TIER_LIMITS] || TIER_LIMITS.free,
+          remaining: TIER_LIMITS[userUsage.tier as keyof typeof TIER_LIMITS] || TIER_LIMITS.free,
         }),
       };
     }
 
-    const limit = TIER_LIMITS[usage.tier as keyof typeof TIER_LIMITS] || TIER_LIMITS.free;
-    const remaining = Math.max(0, limit - usage.images_generated);
+    const limit = TIER_LIMITS[userUsage.tier as keyof typeof TIER_LIMITS] || TIER_LIMITS.free;
+    const remaining = Math.max(0, limit - userUsage.images_generated);
     const canGenerate = remaining > 0;
 
     return {
@@ -155,8 +133,8 @@ export const handler: Handler = async (event) => {
       },
       body: JSON.stringify({
         canGenerate,
-        tier: usage.tier,
-        imagesGenerated: usage.images_generated,
+        tier: userUsage.tier,
+        imagesGenerated: userUsage.images_generated,
         limit,
         remaining,
       }),

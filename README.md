@@ -4,7 +4,7 @@
 
 # AI Image Editor
 
-AI-powered image editing and generation web application using Google Gemini API, with Supabase PostgreSQL database integration.
+AI-powered image editing and generation web application using Google Gemini API, with Neon PostgreSQL database integration.
 
 ## Features
 
@@ -12,15 +12,15 @@ AI-powered image editing and generation web application using Google Gemini API,
 - 🎨 **Image Generation**: Generate images from text descriptions
 - 📊 **Usage Tracking**: Track generation limits per user
 - 🖼️ **Image Gallery**: Save and manage your generated images
-- 💳 **Subscription Plans**: Free, Pro, and Business tiers
+- 💳 **Subscription Plans**: Free, Starter, Pro, and Business tiers
 - ☁️ **Cloud Storage**: Google Drive integration
 
 ## Tech Stack
 
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS
 - **AI**: Google Gemini 2.5 Flash Image
-- **Database**: Supabase (PostgreSQL)
-- **Authentication**: Supabase Auth
+- **Database**: Neon PostgreSQL
+- **Authentication**: localStorage (with Neon Auth/Stack Auth support)
 - **Backend**: Netlify Functions
 - **Payment**: Stripe
 
@@ -38,14 +38,20 @@ AI-powered image editing and generation web application using Google Gemini API,
    VITE_GEMINI_API_KEY=your_gemini_api_key_here
    VITE_NETLIFY_FUNCTIONS_URL=http://localhost:8888/.netlify/functions
    
-   # Supabase Configuration
-   VITE_SUPABASE_URL=https://xxxxx.supabase.co
-   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-   SUPABASE_URL=https://xxxxx.supabase.co
-   SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+   # Neon Database Configuration
+   DATABASE_URL=postgresql://user:password@host/database?sslmode=require
    
    # Optional: For admin panel link
-   VITE_SUPABASE_PROJECT_REF=your_project_ref
+   VITE_NEON_PROJECT_ID=your_neon_project_id
+   
+   # Stripe Configuration (Client-side)
+   VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...
+   VITE_STRIPE_STARTER_MONTHLY_PRICE_ID=price_...
+   VITE_STRIPE_STARTER_ANNUAL_PRICE_ID=price_...
+   VITE_STRIPE_PRO_MONTHLY_PRICE_ID=price_...
+   VITE_STRIPE_PRO_ANNUAL_PRICE_ID=price_...
+   VITE_STRIPE_BUSINESS_MONTHLY_PRICE_ID=price_...
+   VITE_STRIPE_BUSINESS_ANNUAL_PRICE_ID=price_...
    ```
 
 3. Run the app:
@@ -65,30 +71,25 @@ AI-powered image editing and generation web application using Google Gemini API,
 1. Connect your GitHub repository to Netlify
 2. Set environment variables in Netlify Dashboard:
    - `VITE_GEMINI_API_KEY`: Your Gemini API key (must start with VITE_)
-   - `SUPABASE_URL`: Your Supabase project URL
-   - `SUPABASE_SERVICE_ROLE_KEY`: Your Supabase service role key (for server-side functions)
-   - `VITE_SUPABASE_URL`: Your Supabase project URL (for client-side)
-   - `VITE_SUPABASE_ANON_KEY`: Your Supabase anon/public key (for client-side)
-   - `VITE_SUPABASE_PROJECT_REF`: Your Supabase project reference (optional, for admin panel)
+   - `DATABASE_URL`: Your Neon PostgreSQL connection string
+   - `VITE_NEON_PROJECT_ID`: Your Neon project ID (optional, for admin panel)
+   - `VITE_STRIPE_PUBLISHABLE_KEY`: Your Stripe publishable key
+   - `VITE_STRIPE_*_PRICE_ID`: Your Stripe Price IDs for each tier
 3. Deploy!
 
 ## User Authentication
 
 The app includes a complete user management system with:
-- **Sign Up / Sign In**: User registration and authentication via Supabase Auth
+- **Sign Up / Sign In**: User registration and authentication via localStorage
 - **User Portal**: Profile management and subscription status
-- **Supabase Auth**: Production-ready authentication with Supabase
-- **localStorage Fallback**: Works without Supabase for development/testing
+- **Database Integration**: User data stored in Neon PostgreSQL
+- **localStorage Fallback**: Works for development/testing
 
-### Setting Up Supabase
+### Setting Up Neon Database
 
-See [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for detailed instructions on:
-- Creating a Supabase project
-- Getting your credentials
-- Setting up the database schema
-- Configuring environment variables
-- Setting up Row Level Security (RLS) policies
-
-If Supabase is not configured, the app will automatically use localStorage for authentication (suitable for development/testing).
+1. Create a Neon project at [neon.tech](https://neon.tech)
+2. Get your connection string from the Neon Console
+3. Run the database schema from `database/schema.sql` in the Neon SQL Editor
+4. Set `DATABASE_URL` in your environment variables
 
 The site will automatically build and deploy on every push to main.

@@ -1,10 +1,8 @@
 
 import type { UserProfile } from '../types';
-import * as supabaseAuth from './supabaseAuthService';
-import { isSupabaseConfigured } from './supabaseService';
 
-// This service integrates with Supabase Auth when configured,
-// with a localStorage fallback for development/testing.
+// This service uses localStorage for authentication.
+// In production, you would integrate with Neon Auth (Stack Auth) or another auth provider.
 
 const USERS_DB_KEY = 'imageedit_users';
 const CURRENT_USER_KEY = 'imageedit_currentUser';
@@ -44,31 +42,7 @@ const createSession = (user: any) => {
 export const signUp = async (name: string, email: string, password: string): Promise<{ profile: UserProfile, userId?: string }> => {
     console.log('signUp called with:', { name, email, passwordLength: password.length });
     
-    // Try Supabase Auth first if configured
-    if (isSupabaseConfigured()) {
-        console.log('Supabase is configured, attempting to use Supabase Auth');
-        try {
-            const result = await supabaseAuth.signUp(name, email, password);
-            console.log('Supabase sign up successful:', result);
-            return {
-                profile: result.profile,
-                userId: result.userId,
-            };
-        } catch (error: any) {
-            console.error('Supabase Auth sign up error:', error);
-            console.error('Error details:', {
-                message: error?.message,
-                stack: error?.stack,
-                name: error?.name,
-            });
-            // Fall through to localStorage fallback instead of throwing
-            console.log('Falling back to localStorage...');
-        }
-    } else {
-        console.log('Supabase not configured, using localStorage fallback');
-    }
-    
-    // Fallback to localStorage
+    // Use localStorage for authentication
     return new Promise((resolve, reject) => {
         setTimeout(() => {
             const users = getUsers();
@@ -101,21 +75,7 @@ export const signUp = async (name: string, email: string, password: string): Pro
  * @throws Will throw an error for invalid credentials.
  */
 export const signIn = async (email: string, password: string): Promise<{ profile: UserProfile, userId?: string }> => {
-    // Try Supabase Auth first if configured
-    if (isSupabaseConfigured()) {
-        try {
-            const result = await supabaseAuth.signIn(email, password);
-            return {
-                profile: result.profile,
-                userId: result.userId,
-            };
-        } catch (error: any) {
-            console.error('Supabase Auth sign in error:', error);
-            throw new Error(error.message || 'Invalid email or password.');
-        }
-    }
-    
-    // Fallback to localStorage
+    // Use localStorage for authentication
     return new Promise((resolve, reject) => {
         setTimeout(() => {
             const users = getUsers();
@@ -135,16 +95,7 @@ export const signIn = async (email: string, password: string): Promise<{ profile
  * Signs out the current user.
  */
 export const signOut = async (): Promise<void> => {
-    // Try Supabase Auth first if configured
-    if (isSupabaseConfigured()) {
-        try {
-            await supabaseAuth.signOut();
-        } catch (error) {
-            console.error('Error signing out from Supabase:', error);
-        }
-    }
-    
-    // Always clear localStorage as fallback
+    // Clear localStorage
     localStorage.removeItem(CURRENT_USER_KEY);
 };
 
@@ -155,30 +106,7 @@ export const signOut = async (): Promise<void> => {
  * @returns The user session object or null if not signed in.
  */
 export const getCurrentUser = async (): Promise<{ profile: UserProfile, userId?: string } | null> => {
-    // Try Supabase Auth first if configured
-    if (isSupabaseConfigured()) {
-        try {
-            const result = await supabaseAuth.getCurrentUser();
-            if (result) {
-                return {
-                    profile: result.profile,
-                    userId: result.userId,
-                };
-            }
-        } catch (error: any) {
-            // Don't log "Auth session missing" errors - this is expected when not logged in
-            const isSessionMissing = error?.message?.includes('Auth session missing') || 
-                                     error?.name === 'AuthSessionMissingError' ||
-                                     error?.message?.includes('session');
-            
-            if (!isSessionMissing) {
-                // Only log unexpected errors
-                console.error('Error getting user from Supabase:', error);
-            }
-        }
-    }
-    
-    // Fallback to localStorage
+    // Use localStorage
     const session = localStorage.getItem(CURRENT_USER_KEY);
     if (session) {
         const parsed = JSON.parse(session);

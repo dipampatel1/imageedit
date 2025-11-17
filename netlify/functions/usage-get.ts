@@ -1,23 +1,16 @@
-import { createClient } from '@supabase/supabase-js';
+import { neon } from '@neondatabase/serverless';
 import type { Handler } from '@netlify/functions';
 
-// Initialize Supabase client for server-side operations
-const getSupabase = () => {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  // Support both SUPABASE_SERVICE_ROLE_KEY and SUPABASE_KEY (for self-hosted)
-  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+// Initialize Neon database client
+const getNeonClient = () => {
+  const databaseUrl = process.env.DATABASE_URL;
   
-  if (!supabaseUrl || !supabaseServiceRoleKey) {
-    console.error('Supabase configuration missing');
+  if (!databaseUrl) {
+    console.error('DATABASE_URL is not set in environment variables');
     return null;
   }
   
-  return createClient(supabaseUrl, supabaseServiceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+  return neon(databaseUrl);
 };
 
 export const handler: Handler = async (event) => {
@@ -48,8 +41,8 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const supabase = getSupabase();
-    if (!supabase) {
+    const sql = getNeonClient();
+    if (!sql) {
       return {
         statusCode: 500,
         headers: {
@@ -60,56 +53,24 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const { data: result, error } = await supabase
-      .from('user_usage')
-      .select('id, user_id, email, tier, user_level, images_generated, current_period_start, current_period_end, created_at, updated_at')
-      .eq('user_id', userId)
-      .limit(1)
-      .single();
+    const result = await sql`
+      SELECT id, user_id, email, tier, user_level, images_generated, current_period_start, current_period_end, created_at, updated_at
+      FROM user_usage
+      WHERE user_id = ${userId}
+      LIMIT 1
+    `;
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-      console.error('Error fetching usage:', error);
-      return {
-        statusCode: 500,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ error: error.message || 'Internal server error' }),
-      };
-    }
-
-    if (!result) {
+    if (result.length === 0) {
       // Create new usage record for user
       const email = event.queryStringParameters?.email || 'unknown@example.com';
       const periodEnd = new Date();
       periodEnd.setMonth(periodEnd.getMonth() + 1);
       
-      const { data: newResult, error: insertError } = await supabase
-        .from('user_usage')
-        .insert({
-          user_id: userId,
-          email: email,
-          tier: 'free',
-          user_level: 'user',
-          images_generated: 0,
-          current_period_start: new Date().toISOString(),
-          current_period_end: periodEnd.toISOString(),
-        })
-        .select()
-        .single();
-
-      if (insertError) {
-        console.error('Error creating usage record:', insertError);
-        return {
-          statusCode: 500,
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ error: insertError.message || 'Internal server error' }),
-        };
-      }
+      const [newResult] = await sql`
+        INSERT INTO user_usage (user_id, email, tier, user_level, images_generated, current_period_start, current_period_end)
+        VALUES (${userId}, ${email}, 'free', 'user', 0, ${new Date().toISOString()}, ${periodEnd.toISOString()})
+        RETURNING *
+      `;
 
       return {
         statusCode: 200,
@@ -127,7 +88,7 @@ export const handler: Handler = async (event) => {
         'Access-Control-Allow-Origin': '*',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(result || null),
+      body: JSON.stringify(result[0] || null),
     };
   } catch (error: any) {
     console.error('Error fetching usage:', error);

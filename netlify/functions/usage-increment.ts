@@ -1,23 +1,16 @@
-import { createClient } from '@supabase/supabase-js';
+import { neon } from '@neondatabase/serverless';
 import type { Handler } from '@netlify/functions';
 
-// Initialize Supabase client for server-side operations
-const getSupabase = () => {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  // Support both SUPABASE_SERVICE_ROLE_KEY and SUPABASE_KEY (for self-hosted)
-  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+// Initialize Neon database client
+const getNeonClient = () => {
+  const databaseUrl = process.env.DATABASE_URL;
   
-  if (!supabaseUrl || !supabaseServiceRoleKey) {
-    console.error('Supabase configuration missing');
+  if (!databaseUrl) {
+    console.error('DATABASE_URL is not set in environment variables');
     return null;
   }
   
-  return createClient(supabaseUrl, supabaseServiceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+  return neon(databaseUrl);
 };
 
 export const handler: Handler = async (event) => {
@@ -59,8 +52,8 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const supabase = getSupabase();
-    if (!supabase) {
+    const sql = getNeonClient();
+    if (!sql) {
       return {
         statusCode: 500,
         headers: {
@@ -72,47 +65,23 @@ export const handler: Handler = async (event) => {
     }
 
     // Check if period has expired and reset if needed
-    const { data: currentUsage, error: fetchError } = await supabase
-      .from('user_usage')
-      .select('*')
-      .eq('user_id', userId)
-      .limit(1)
-      .single();
+    const currentUsage = await sql`
+      SELECT * 
+      FROM user_usage 
+      WHERE user_id = ${userId}
+      LIMIT 1
+    `;
 
-    if (fetchError && fetchError.code !== 'PGRST116') {
-      console.error('Error fetching current usage:', fetchError);
-    }
-
-    if (!currentUsage) {
+    if (currentUsage.length === 0) {
       // Create new usage record
       const periodEnd = new Date();
       periodEnd.setMonth(periodEnd.getMonth() + 1);
       
-      const { data: newUsage, error: insertError } = await supabase
-        .from('user_usage')
-        .insert({
-          user_id: userId,
-          email: email || 'unknown@example.com',
-          tier: 'free',
-          user_level: 'user',
-          images_generated: 1,
-          current_period_start: new Date().toISOString(),
-          current_period_end: periodEnd.toISOString(),
-        })
-        .select()
-        .single();
-
-      if (insertError) {
-        console.error('Error creating usage record:', insertError);
-        return {
-          statusCode: 500,
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ error: insertError.message || 'Internal server error' }),
-        };
-      }
+      const [newUsage] = await sql`
+        INSERT INTO user_usage (user_id, email, tier, user_level, images_generated, current_period_start, current_period_end)
+        VALUES (${userId}, ${email || 'unknown@example.com'}, 'free', 'user', 1, ${new Date().toISOString()}, ${periodEnd.toISOString()})
+        RETURNING *
+      `;
 
       return {
         statusCode: 200,
@@ -124,36 +93,24 @@ export const handler: Handler = async (event) => {
       };
     }
 
+    const userUsage = currentUsage[0];
     const now = new Date();
-    const periodEnd = new Date(currentUsage.current_period_end);
+    const periodEnd = new Date(userUsage.current_period_end);
 
     if (now > periodEnd) {
       // Reset period
       const newPeriodEnd = new Date();
       newPeriodEnd.setMonth(newPeriodEnd.getMonth() + 1);
       
-      const { data: updated, error: updateError } = await supabase
-        .from('user_usage')
-        .update({
-          images_generated: 1,
-          current_period_start: new Date().toISOString(),
-          current_period_end: newPeriodEnd.toISOString(),
-        })
-        .eq('user_id', userId)
-        .select()
-        .single();
-
-      if (updateError) {
-        console.error('Error resetting usage period:', updateError);
-        return {
-          statusCode: 500,
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ error: updateError.message || 'Internal server error' }),
-        };
-      }
+      const [updated] = await sql`
+        UPDATE user_usage
+        SET 
+          images_generated = 1,
+          current_period_start = ${new Date().toISOString()},
+          current_period_end = ${newPeriodEnd.toISOString()}
+        WHERE user_id = ${userId}
+        RETURNING *
+      `;
 
       return {
         statusCode: 200,
@@ -165,26 +122,12 @@ export const handler: Handler = async (event) => {
       };
     } else {
       // Increment usage
-      const { data: updated, error: updateError } = await supabase
-        .from('user_usage')
-        .update({
-          images_generated: currentUsage.images_generated + 1,
-        })
-        .eq('user_id', userId)
-        .select()
-        .single();
-
-      if (updateError) {
-        console.error('Error incrementing usage:', updateError);
-        return {
-          statusCode: 500,
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ error: updateError.message || 'Internal server error' }),
-        };
-      }
+      const [updated] = await sql`
+        UPDATE user_usage
+        SET images_generated = ${userUsage.images_generated + 1}
+        WHERE user_id = ${userId}
+        RETURNING *
+      `;
 
       return {
         statusCode: 200,

@@ -1,23 +1,16 @@
-import { createClient } from '@supabase/supabase-js';
+import { neon } from '@neondatabase/serverless';
 import type { Handler } from '@netlify/functions';
 
-// Initialize Supabase client for server-side operations
-const getSupabase = () => {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  // Support both SUPABASE_SERVICE_ROLE_KEY and SUPABASE_KEY (for self-hosted)
-  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+// Initialize Neon database client
+const getNeonClient = () => {
+  const databaseUrl = process.env.DATABASE_URL;
   
-  if (!supabaseUrl || !supabaseServiceRoleKey) {
-    console.error('Supabase configuration missing');
+  if (!databaseUrl) {
+    console.error('DATABASE_URL is not set in environment variables');
     return null;
   }
   
-  return createClient(supabaseUrl, supabaseServiceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+  return neon(databaseUrl);
 };
 
 export const handler: Handler = async (event) => {
@@ -59,8 +52,8 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const supabase = getSupabase();
-    if (!supabase) {
+    const sql = getNeonClient();
+    if (!sql) {
       return {
         statusCode: 500,
         headers: {
@@ -71,29 +64,10 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const { error } = await supabase
-      .from('image_history')
-      .insert({
-        user_id: userId,
-        image_id: imageId,
-        base64_data: base64Data,
-        mime_type: mimeType || 'image/png',
-        original_name: originalName || null,
-        prompt: prompt || null,
-        mode: mode || null,
-      });
-
-    if (error) {
-      console.error('Error saving image:', error);
-      return {
-        statusCode: 500,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ error: error.message || 'Internal server error' }),
-      };
-    }
+    await sql`
+      INSERT INTO image_history (user_id, image_id, base64_data, mime_type, original_name, prompt, mode)
+      VALUES (${userId}, ${imageId}, ${base64Data}, ${mimeType || 'image/png'}, ${originalName || null}, ${prompt || null}, ${mode || null})
+    `;
 
     return {
       statusCode: 200,
