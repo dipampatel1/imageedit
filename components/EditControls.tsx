@@ -75,19 +75,20 @@ const EditControls: React.FC<EditControlsProps> = ({ mode, prompt, setPrompt, as
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-300 mb-2">Aspect Ratio</label>
-        <div className="flex flex-wrap gap-2">
+        <label className="block text-sm font-semibold text-slate-200 mb-3">📐 Aspect Ratio</label>
+        <div className="flex flex-wrap gap-3">
           {aspectRatios.map((ratio) => (
             <button
               key={ratio}
               onClick={() => setAspectRatio(ratio)}
               disabled={!isReady && mode === 'edit'}
-              className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors border-2
+              className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all duration-300 transform border-2
                 ${
                   aspectRatio === ratio
-                    ? 'bg-cyan-600 border-cyan-500 text-white'
-                    : 'bg-slate-700 border-slate-600 hover:bg-slate-600 hover:border-slate-500 disabled:bg-slate-800 disabled:text-slate-500 disabled:border-slate-700'
+                    ? 'bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 border-transparent text-white shadow-lg glow-cyan scale-105'
+                    : 'glass-effect border-white/10 text-slate-300 hover:border-purple-400/50 hover:scale-105'
                 }
+                ${!isReady && mode === 'edit' ? 'opacity-50 cursor-not-allowed' : ''}
               `}
             >
               {ratio}
@@ -99,22 +100,27 @@ const EditControls: React.FC<EditControlsProps> = ({ mode, prompt, setPrompt, as
       <button
         onClick={onProcess}
         disabled={isGenerationDisabled}
-        className="w-full flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 disabled:scale-100"
+        className={`group relative w-full py-4 px-6 rounded-2xl font-bold text-white transition-all duration-300 transform overflow-hidden ${
+          isGenerationDisabled
+            ? 'bg-slate-700 cursor-not-allowed opacity-50'
+            : 'bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 hover:scale-105 shadow-2xl glow-cyan'
+        }`}
       >
         {isLoading ? (
-          <>
-            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <span className="relative z-10 flex items-center justify-center gap-3">
+            <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            Generating...
-          </>
+            <span>Creating Magic...</span>
+          </span>
         ) : (
-          <>
-            <MagicWandIcon className="w-5 h-5" />
-            Generate Image
-          </>
+          <span className="relative z-10 flex items-center justify-center gap-3">
+            <MagicWandIcon className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+            <span>{mode === 'edit' ? '✨ Apply Edit' : '🎨 Generate Image'}</span>
+          </span>
         )}
+        {!isGenerationDisabled && <div className="absolute inset-0 animate-shimmer"></div>}
       </button>
     </div>
   );
