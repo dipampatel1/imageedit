@@ -27,10 +27,11 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage = 'home'
     loadUsage();
     
     // Listen for auth changes (e.g., after sign in/out)
+    // Poll less frequently to reduce unnecessary API calls
     const interval = setInterval(() => {
       loadUser();
       loadUsage();
-    }, 2000);
+    }, 5000); // Changed from 2000ms to 5000ms (5 seconds)
     return () => clearInterval(interval);
   }, []);
 

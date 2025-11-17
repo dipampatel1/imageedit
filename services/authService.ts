@@ -165,8 +165,16 @@ export const getCurrentUser = async (): Promise<{ profile: UserProfile, userId?:
                     userId: result.userId,
                 };
             }
-        } catch (error) {
-            console.error('Error getting user from Supabase:', error);
+        } catch (error: any) {
+            // Don't log "Auth session missing" errors - this is expected when not logged in
+            const isSessionMissing = error?.message?.includes('Auth session missing') || 
+                                     error?.name === 'AuthSessionMissingError' ||
+                                     error?.message?.includes('session');
+            
+            if (!isSessionMissing) {
+                // Only log unexpected errors
+                console.error('Error getting user from Supabase:', error);
+            }
         }
     }
     
