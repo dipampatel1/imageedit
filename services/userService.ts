@@ -65,19 +65,13 @@ export const getCompleteUser = async (): Promise<CompleteUser | null> => {
  */
 export const initializeUser = async (userId: string, email: string, name?: string): Promise<UserUsage | null> => {
   try {
-    console.log('Initializing user in database:', { userId, email, name, functionsUrl: FUNCTIONS_URL });
-    
     const url = `${FUNCTIONS_URL}/user-init`;
-    console.log('Calling:', url);
     
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, email, name }),
     });
-
-    console.log('User init response status:', response.status);
-    console.log('User init response headers:', Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
       let errorText = '';
@@ -86,7 +80,6 @@ export const initializeUser = async (userId: string, email: string, name?: strin
         console.error('Failed to initialize user - response body:', errorText);
       } catch (e) {
         errorText = `HTTP ${response.status} ${response.statusText}`;
-        console.error('Failed to read error response:', e);
       }
       
       const errorMessage = `Failed to initialize user: ${response.status} ${errorText}`;
@@ -95,10 +88,6 @@ export const initializeUser = async (userId: string, email: string, name?: strin
     }
 
     const result = await response.json();
-    console.log('User initialized successfully:', result);
-    console.log('Result keys:', result ? Object.keys(result) : 'null');
-    console.log('Has user_id:', result?.user_id ? 'yes' : 'no');
-    console.log('Has user_id (alternative):', result?.userId ? 'yes' : 'no');
     
     // Check for both user_id and userId (case variations)
     if (!result || (!result.user_id && !result.userId)) {
@@ -109,10 +98,6 @@ export const initializeUser = async (userId: string, email: string, name?: strin
     return result;
   } catch (error) {
     console.error('Error initializing user:', error);
-    console.error('Error details:', {
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    });
     // Re-throw so the caller knows it failed
     throw error;
   }

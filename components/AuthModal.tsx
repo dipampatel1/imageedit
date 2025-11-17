@@ -25,88 +25,69 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
 
     const handleSignUp = async (e: React.FormEvent) => {
         e.preventDefault();
-        console.log('🔵 handleSignUp called');
         setError(null);
         
         if (!name || !email || !password) {
-            console.warn('⚠️ Form validation failed - missing fields');
             setError("All fields are required.");
             return;
         }
         
-        console.log('✅ Form validation passed, starting sign up...');
-        console.log('Form data:', { name, email, passwordLength: password.length });
         setIsLoading(true);
 
         try {
-            console.log('🔵 Calling authService.signUp...');
             // Sign up the user (creates in localStorage)
             const user = await authService.signUp(name, email, password);
-            console.log('✅ Sign up successful, user:', user);
             
             // Initialize user in database (create user_usage record)
-            console.log('User signed up, attempting to initialize in database:', user);
             let initSuccess = false;
             let initError: string | null = null;
             
             if (user.userId && user.profile.email) {
-                console.log('Using userId:', user.userId);
                 try {
                     const result = await initializeUser(user.userId, user.profile.email, user.profile.name);
                     // Check for both user_id and userId (case variations)
                     if (result && (result.user_id || result.userId)) {
-                        console.log('✅ User successfully initialized in database:', result);
                         initSuccess = true;
                     } else {
-                        initError = 'User initialization returned invalid result - check browser console and Netlify function logs';
-                        console.error('❌', initError, result);
-                        console.error('Result keys:', result ? Object.keys(result) : 'null');
+                        initError = 'User initialization returned invalid result - check Netlify function logs';
+                        console.error('User initialization failed:', result);
                     }
                 } catch (initErrorObj) {
                     initError = `Failed to initialize user: ${initErrorObj instanceof Error ? initErrorObj.message : 'Unknown error'}`;
-                    console.error('❌ Failed to initialize user in database:', initErrorObj);
+                    console.error('Failed to initialize user in database:', initErrorObj);
                 }
             } else if (user.profile.email) {
                 // For localStorage fallback, generate userId from email
-                console.log('No userId from auth, generating from email');
                 const encoder = new TextEncoder();
                 const data = encoder.encode(user.profile.email);
                 const hashBuffer = await crypto.subtle.digest('SHA-256', data);
                 const hashArray = Array.from(new Uint8Array(hashBuffer));
                 const userId = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
                 
-                console.log('Generated userId from email:', userId);
                 try {
                     const result = await initializeUser(userId, user.profile.email, user.profile.name);
                     // Check for both user_id and userId (case variations)
                     if (result && (result.user_id || result.userId)) {
-                        console.log('✅ User successfully initialized in database:', result);
                         initSuccess = true;
                     } else {
-                        initError = 'User initialization returned invalid result - check browser console and Netlify function logs';
-                        console.error('❌', initError, result);
-                        console.error('Result keys:', result ? Object.keys(result) : 'null');
+                        initError = 'User initialization returned invalid result - check Netlify function logs';
+                        console.error('User initialization failed:', result);
                     }
                 } catch (initErrorObj) {
                     initError = `Failed to initialize user: ${initErrorObj instanceof Error ? initErrorObj.message : 'Unknown error'}`;
-                    console.error('❌ Failed to initialize user in database:', initErrorObj);
+                    console.error('Failed to initialize user in database:', initErrorObj);
                 }
             } else {
                 initError = 'Cannot initialize user - missing userId and email';
-                console.warn('⚠️', initError);
             }
             
             // Show warning if database initialization failed (but don't block sign up)
             if (!initSuccess) {
-                console.warn('⚠️ Database initialization failed. User can still use the app, but record will be created when they first generate an image.');
-                console.warn('Error:', initError);
-                // Show a visible warning in the UI
-                setError(`Account created! ⚠️ Database initialization failed: ${initError || 'Unknown error'}. Check console for details.`);
+                console.warn('Database initialization failed:', initError);
+                setError(`Account created! ⚠️ Database initialization failed: ${initError || 'Unknown error'}. Check Netlify function logs.`);
             }
             
-            console.log('Calling onAuthSuccess...');
             onAuthSuccess(); // Automatically sign in after successful sign-up
-            console.log('Sign up flow completed successfully');
         } catch (err) {
             console.error('❌ Sign up error caught:', err);
             console.error('Error type:', typeof err);

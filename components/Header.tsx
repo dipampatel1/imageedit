@@ -26,12 +26,15 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage = 'home'
     loadUser();
     loadUsage();
     
-    // Listen for auth changes (e.g., after sign in/out)
-    // Poll less frequently to reduce unnecessary API calls
-    const interval = setInterval(() => {
-      loadUser();
-      loadUsage();
-    }, 5000); // Changed from 2000ms to 5000ms (5 seconds)
+    // Only poll if user is logged in, and much less frequently to reduce console spam
+    // Poll every 60 seconds (1 minute) - only refresh when needed
+    const interval = setInterval(async () => {
+      const currentUser = await authService.getCurrentUser();
+      if (currentUser) {
+        loadUser();
+        loadUsage();
+      }
+    }, 60000); // 60 seconds (1 minute) - much less frequent
     return () => clearInterval(interval);
   }, []);
 

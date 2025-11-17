@@ -40,7 +40,7 @@ const createSession = (user: any) => {
  * @throws Will throw an error if the email is already in use.
  */
 export const signUp = async (name: string, email: string, password: string): Promise<{ profile: UserProfile, userId?: string }> => {
-    console.log('signUp called with:', { name, email, passwordLength: password.length });
+    // Removed verbose logging to reduce console spam
     
     // Use localStorage for authentication
     return new Promise((resolve, reject) => {
