@@ -138,18 +138,36 @@ export const getCurrentUser = async (): Promise<{ profile: UserProfile, userId?:
 export const resetPassword = async (email: string, newPassword: string): Promise<void> => {
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            const users = getUsers();
-            const userIndex = users.findIndex(u => u.email === email);
+            try {
+                console.log('🔵 resetPassword: Resetting password for:', email);
+                const users = getUsers();
+                console.log('🔵 resetPassword: Total users:', users.length);
+                const userIndex = users.findIndex(u => u.email && u.email.toLowerCase() === email.toLowerCase());
+                console.log('🔵 resetPassword: User index:', userIndex);
 
-            if (userIndex === -1) {
-                return reject(new Error('No account found with this email address.'));
+                if (userIndex === -1) {
+                    console.error('❌ resetPassword: User not found');
+                    return reject(new Error('No account found with this email address.'));
+                }
+
+                // Update the password
+                users[userIndex].password = newPassword; // In a real app, this would be hashed.
+                saveUsers(users);
+
+                // Verify password was saved
+                const savedUsers = getUsers();
+                const savedUser = savedUsers.find(u => u.email && u.email.toLowerCase() === email.toLowerCase());
+                if (!savedUser || !savedUser.password) {
+                    console.error('❌ resetPassword: Password was not saved correctly');
+                    return reject(new Error('Failed to save new password. Please try again.'));
+                }
+
+                console.log('✅ resetPassword: Password reset successful');
+                resolve();
+            } catch (error) {
+                console.error('❌ resetPassword: Error:', error);
+                reject(error instanceof Error ? error : new Error('Failed to reset password'));
             }
-
-            // Update the password
-            users[userIndex].password = newPassword; // In a real app, this would be hashed.
-            saveUsers(users);
-
-            resolve();
         }, 500);
     });
 };
@@ -162,9 +180,18 @@ export const resetPassword = async (email: string, newPassword: string): Promise
 export const emailExists = async (email: string): Promise<boolean> => {
     return new Promise((resolve) => {
         setTimeout(() => {
-            const users = getUsers();
-            const exists = users.some(u => u.email === email);
-            resolve(exists);
+            try {
+                const users = getUsers();
+                console.log('🔵 emailExists: Checking email:', email);
+                console.log('🔵 emailExists: Total users in localStorage:', users.length);
+                console.log('🔵 emailExists: User emails:', users.map(u => u.email));
+                const exists = users.some(u => u.email && u.email.toLowerCase() === email.toLowerCase());
+                console.log('🔵 emailExists: Result:', exists);
+                resolve(exists);
+            } catch (error) {
+                console.error('❌ Error checking email existence:', error);
+                resolve(false);
+            }
         }, 300);
     });
 };

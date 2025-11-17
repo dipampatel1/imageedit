@@ -137,6 +137,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
         e.preventDefault();
         setError(null);
         
+        console.log('🔵 handleForgotPassword called, email:', email);
+        
         if (!email) {
             setError("Email address is required.");
             return;
@@ -146,7 +148,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
 
         try {
             // Check if email exists
+            console.log('🔵 Checking if email exists:', email);
             const exists = await authService.emailExists(email);
+            console.log('🔵 Email exists check result:', exists);
+            
             if (!exists) {
                 setError("No account found with this email address.");
                 setIsLoading(false);
@@ -155,9 +160,11 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
 
             // For localStorage fallback, we'll allow direct password reset
             // In production, this would send an email with a reset link
+            console.log('✅ Email found, switching to reset form');
             setError(null);
             setActiveTab('reset'); // Switch to reset password form
         } catch (err) {
+            console.error('❌ Error in handleForgotPassword:', err);
             setError(err instanceof Error ? err.message : 'An unknown error occurred.');
         } finally {
             setIsLoading(false);
@@ -167,6 +174,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
     const handleResetPassword = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
+
+        console.log('🔵 handleResetPassword called', { email, hasNewPassword: !!newPassword, hasConfirmPassword: !!confirmPassword });
 
         if (!email) {
             setError("Email address is required.");
@@ -191,7 +200,9 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
         setIsLoading(true);
 
         try {
+            console.log('🔵 Resetting password for:', email);
             await authService.resetPassword(email, newPassword);
+            console.log('✅ Password reset successful');
             setError(null);
             // Show success message and switch to sign in
             setActiveTab('signin');
@@ -200,6 +211,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
             setConfirmPassword('');
             alert('Password reset successful! Please sign in with your new password.');
         } catch (err) {
+            console.error('❌ Error resetting password:', err);
             setError(err instanceof Error ? err.message : 'An unknown error occurred.');
         } finally {
             setIsLoading(false);
@@ -290,7 +302,15 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
                     <input id="password-signin" type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-2 bg-slate-900 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500" required />
                 </div>
                 <div className="text-right">
-                    <button type="button" onClick={() => setActiveTab('forgot')} className="text-sm text-cyan-400 hover:text-cyan-300">
+                    <button 
+                        type="button" 
+                        onClick={() => {
+                            console.log('🔵 Forgot Password button clicked');
+                            setActiveTab('forgot');
+                            setError(null);
+                        }} 
+                        className="text-sm text-cyan-400 hover:text-cyan-300"
+                    >
                         Forgot Password?
                     </button>
                 </div>
