@@ -27,7 +27,20 @@ const UserPortalModal: React.FC<UserPortalModalProps> = ({
   if (!userProfile) return null;
 
   const handleUpgrade = async (tier: 'starter' | 'pro' | 'business', billingCycle: 'monthly' | 'annual') => {
-    await redirectToCheckout(tier, billingCycle, userProfile.email);
+    console.log('🔵 handleUpgrade called:', { tier, billingCycle, email: userProfile.email });
+    
+    if (!userProfile?.email) {
+      console.error('❌ User email not available');
+      alert('User email is required for checkout. Please sign in again.');
+      return;
+    }
+
+    try {
+      await redirectToCheckout(tier, billingCycle, userProfile.email);
+    } catch (error: any) {
+      console.error('❌ Error in handleUpgrade:', error);
+      alert(`Failed to start checkout: ${error.message || 'Unknown error'}`);
+    }
   };
 
   return (

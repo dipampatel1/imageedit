@@ -143,16 +143,43 @@ const getStripe = () => {
 };
 
 export const redirectToCheckout = async (tier: 'starter' | 'pro' | 'business', billingCycle: 'monthly' | 'annual', userEmail: string) => {
+  console.log('🔵 redirectToCheckout called:', { tier, billingCycle, userEmail });
+  
   const stripe = getStripe();
 
   if (!stripe) {
+      console.error('❌ Stripe instance not available');
       return;
   }
 
   const priceId = STRIPE_PRICE_IDS[tier][billingCycle];
+  console.log('🔵 Price ID:', priceId, 'for tier:', tier, 'billing:', billingCycle);
 
-  if (!priceId || priceId.startsWith('price_')) {
-      console.warn(`Using a TEST Stripe Price ID: ${priceId}. Ensure you have set your live Price IDs in your environment variables for production.`);
+  if (!priceId) {
+      console.error('❌ No Price ID found for:', { tier, billingCycle });
+      alert('Payment configuration error: No price ID found. Please contact support.');
+      return;
+  }
+
+  // Check if using placeholder/test price IDs
+  if (priceId.startsWith('price_starter_') || priceId.startsWith('price_pro_') || priceId.startsWith('price_business_')) {
+      console.warn('⚠️ Using a placeholder Stripe Price ID:', priceId);
+      console.warn('⚠️ Ensure you have set your live Price IDs in your environment variables for production.');
+      alert('Payment configuration incomplete. Please set up Stripe Price IDs in your environment variables.');
+      return;
+  }
+
+  // Validate that priceId is a valid Stripe price ID format (starts with 'price_')
+  if (!priceId.startsWith('price_')) {
+      console.error('❌ Invalid Price ID format:', priceId);
+      alert('Payment configuration error: Invalid price ID format. Please contact support.');
+      return;
+  }
+
+  // Validate Stripe publishable key
+  if (!STRIPE_PUBLISHABLE_KEY || STRIPE_PUBLISHABLE_KEY.startsWith('pk_test_51HufXu')) {
+      console.warn('⚠️ Using test/placeholder Stripe publishable key');
+      console.warn('⚠️ Ensure you have set VITE_STRIPE_PUBLISHABLE_KEY in your environment variables.');
   }
   
   // These URLs are where Stripe will redirect the user after checkout.
@@ -160,20 +187,34 @@ export const redirectToCheckout = async (tier: 'starter' | 'pro' | 'business', b
   const successUrl = `${window.location.origin}${window.location.pathname}?payment=success&tier=${tier}`;
   const cancelUrl = `${window.location.origin}${window.location.pathname}`;
 
-  const { error } = await stripe.redirectToCheckout({
-    lineItems: [{ price: priceId, quantity: 1 }],
-    mode: 'subscription',
-    successUrl: successUrl,
-    cancelUrl: cancelUrl,
-    customerEmail: userEmail, // Pass the user's email to Stripe
-    metadata: {
-      tier: tier,
-      billingCycle: billingCycle,
-    },
+  console.log('🔵 Redirecting to Stripe Checkout with:', {
+    priceId,
+    successUrl,
+    cancelUrl,
+    customerEmail: userEmail
   });
 
-  if (error) {
-    console.error("Error redirecting to Stripe Checkout:", error);
-    alert(`Could not redirect to payment page: ${error.message}`);
+  try {
+    const { error } = await stripe.redirectToCheckout({
+      lineItems: [{ price: priceId, quantity: 1 }],
+      mode: 'subscription',
+      successUrl: successUrl,
+      cancelUrl: cancelUrl,
+      customerEmail: userEmail, // Pass the user's email to Stripe
+      metadata: {
+        tier: tier,
+        billingCycle: billingCycle,
+      },
+    });
+
+    if (error) {
+      console.error("❌ Error redirecting to Stripe Checkout:", error);
+      alert(`Could not redirect to payment page: ${error.message}`);
+    } else {
+      console.log('✅ Successfully initiated Stripe Checkout redirect');
+    }
+  } catch (err: any) {
+    console.error("❌ Exception during Stripe Checkout:", err);
+    alert(`Payment error: ${err.message || 'An unexpected error occurred. Please try again.'}`);
   }
 };

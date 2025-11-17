@@ -11,12 +11,26 @@ export const PricingPage: React.FC = () => {
   }, []);
 
   const handleUpgrade = async (tier: 'starter' | 'pro' | 'business') => {
+    console.log('🔵 handleUpgrade called:', { tier, billingCycle, hasUser: !!user });
+    
     if (!user) {
       // Show sign up modal or redirect to sign up
       alert('Please sign up to upgrade your plan');
       return;
     }
-    await redirectToCheckout(tier, billingCycle, user.profile.email);
+
+    if (!user.profile?.email) {
+      console.error('❌ User email not available');
+      alert('User email is required for checkout. Please sign in again.');
+      return;
+    }
+
+    try {
+      await redirectToCheckout(tier, billingCycle, user.profile.email);
+    } catch (error: any) {
+      console.error('❌ Error in handleUpgrade:', error);
+      alert(`Failed to start checkout: ${error.message || 'Unknown error'}`);
+    }
   };
 
   const calculateAnnualPrice = (monthlyPrice: number): number => {
