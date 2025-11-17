@@ -174,26 +174,49 @@ export const resetPassword = async (email: string, newPassword: string): Promise
 
 /**
  * Checks if an email exists in the system (for password reset).
+ * Checks both localStorage and Neon database.
  * @param email The email to check
  * @returns true if the email exists, false otherwise
  */
 export const emailExists = async (email: string): Promise<boolean> => {
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            try {
-                const users = getUsers();
-                console.log('🔵 emailExists: Checking email:', email);
-                console.log('🔵 emailExists: Total users in localStorage:', users.length);
-                console.log('🔵 emailExists: User emails:', users.map(u => u.email));
-                const exists = users.some(u => u.email && u.email.toLowerCase() === email.toLowerCase());
-                console.log('🔵 emailExists: Result:', exists);
-                resolve(exists);
-            } catch (error) {
-                console.error('❌ Error checking email existence:', error);
-                resolve(false);
-            }
-        }, 300);
-    });
+    // First check localStorage
+    try {
+        const users = getUsers();
+        console.log('🔵 emailExists: Checking email:', email);
+        console.log('🔵 emailExists: Total users in localStorage:', users.length);
+        console.log('🔵 emailExists: User emails:', users.map(u => u.email));
+        const existsInLocalStorage = users.some(u => u.email && u.email.toLowerCase() === email.toLowerCase());
+        
+        if (existsInLocalStorage) {
+            console.log('🔵 emailExists: Found in localStorage');
+            return true;
+        }
+    } catch (error) {
+        console.error('❌ Error checking localStorage:', error);
+    }
+
+    // If not found in localStorage, check Neon database
+    try {
+        const FUNCTIONS_URL = import.meta.env.VITE_NETLIFY_FUNCTIONS_URL || '/.netlify/functions';
+        const url = `${FUNCTIONS_URL}/email-check?email=${encodeURIComponent(email)}`;
+        
+        console.log('🔵 emailExists: Checking Neon database:', url);
+        const response = await fetch(url);
+        
+        if (response.ok) {
+            const result = await response.json();
+            console.log('🔵 emailExists: Database check result:', result);
+            return result.exists === true;
+        } else {
+            console.warn('⚠️ emailExists: Database check failed:', response.status);
+            // If database check fails, return false (safer for password reset)
+            return false;
+        }
+    } catch (error) {
+        console.error('❌ Error checking database:', error);
+        // If database check fails, return false (safer for password reset)
+        return false;
+    }
 };
 
 /**
