@@ -65,7 +65,7 @@ export const handler: Handler = async (event) => {
     // Check Neon configuration
     const sql = getNeonClient();
     if (!sql) {
-      console.error('Neon client not available');
+      console.error('Neon client not available - DATABASE_URL is missing');
       return {
         statusCode: 500,
         headers: {
@@ -75,6 +75,8 @@ export const handler: Handler = async (event) => {
         body: JSON.stringify({ error: 'Database connection not configured. Check DATABASE_URL.' }),
       };
     }
+    
+    console.log('Neon client initialized successfully');
 
     // Check if user already exists
     console.log('Checking if user exists:', userId);
@@ -112,13 +114,29 @@ export const handler: Handler = async (event) => {
     const periodEnd = new Date();
     periodEnd.setMonth(periodEnd.getMonth() + 1);
     
-    const [newUser] = await sql`
+    const periodStart = new Date().toISOString();
+    const periodEndStr = periodEnd.toISOString();
+    
+    console.log('Inserting user with data:', {
+      userId,
+      email,
+      tier: 'free',
+      user_level: 'user',
+      images_generated: 0,
+      current_period_start: periodStart,
+      current_period_end: periodEndStr,
+    });
+    
+    const result = await sql`
       INSERT INTO user_usage (user_id, email, tier, user_level, images_generated, current_period_start, current_period_end)
-      VALUES (${userId}, ${email}, 'free', 'user', 0, ${new Date().toISOString()}, ${periodEnd.toISOString()})
+      VALUES (${userId}, ${email}, 'free', 'user', 0, ${periodStart}, ${periodEndStr})
       RETURNING *
     `;
 
-    console.log('Insert result:', newUser);
+    console.log('Insert result:', result);
+    console.log('Insert result length:', result.length);
+    const newUser = result[0];
+    console.log('Extracted newUser:', newUser);
 
     if (!newUser) {
       console.error('User was not created - insert returned null');

@@ -96,10 +96,14 @@ export const initializeUser = async (userId: string, email: string, name?: strin
 
     const result = await response.json();
     console.log('User initialized successfully:', result);
+    console.log('Result keys:', result ? Object.keys(result) : 'null');
+    console.log('Has user_id:', result?.user_id ? 'yes' : 'no');
+    console.log('Has user_id (alternative):', result?.userId ? 'yes' : 'no');
     
-    if (!result || !result.user_id) {
+    // Check for both user_id and userId (case variations)
+    if (!result || (!result.user_id && !result.userId)) {
       console.error('User initialization returned invalid result:', result);
-      throw new Error('User initialization returned invalid result');
+      throw new Error('User initialization returned invalid result - missing user_id');
     }
     
     return result;

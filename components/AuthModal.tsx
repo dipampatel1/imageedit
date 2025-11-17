@@ -53,12 +53,14 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
                 console.log('Using userId:', user.userId);
                 try {
                     const result = await initializeUser(user.userId, user.profile.email, user.profile.name);
-                    if (result && result.user_id) {
+                    // Check for both user_id and userId (case variations)
+                    if (result && (result.user_id || result.userId)) {
                         console.log('✅ User successfully initialized in database:', result);
                         initSuccess = true;
                     } else {
                         initError = 'User initialization returned invalid result - check browser console and Netlify function logs';
                         console.error('❌', initError, result);
+                        console.error('Result keys:', result ? Object.keys(result) : 'null');
                     }
                 } catch (initErrorObj) {
                     initError = `Failed to initialize user: ${initErrorObj instanceof Error ? initErrorObj.message : 'Unknown error'}`;
@@ -76,12 +78,14 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
                 console.log('Generated userId from email:', userId);
                 try {
                     const result = await initializeUser(userId, user.profile.email, user.profile.name);
-                    if (result && result.user_id) {
+                    // Check for both user_id and userId (case variations)
+                    if (result && (result.user_id || result.userId)) {
                         console.log('✅ User successfully initialized in database:', result);
                         initSuccess = true;
                     } else {
                         initError = 'User initialization returned invalid result - check browser console and Netlify function logs';
                         console.error('❌', initError, result);
+                        console.error('Result keys:', result ? Object.keys(result) : 'null');
                     }
                 } catch (initErrorObj) {
                     initError = `Failed to initialize user: ${initErrorObj instanceof Error ? initErrorObj.message : 'Unknown error'}`;
