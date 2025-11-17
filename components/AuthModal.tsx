@@ -384,6 +384,11 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
             </div>
         </div>
     );
+
+    if (!mounted) return null;
+
+    // Render modal using portal at document body level to avoid z-index issues
+    return createPortal(modalContent, document.body);
 };
 
 export default AuthModal;
