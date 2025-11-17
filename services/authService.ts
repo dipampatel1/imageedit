@@ -56,12 +56,21 @@ export const signUp = async (name: string, email: string, password: string): Pro
                 id: crypto.randomUUID(),
                 name,
                 email,
-                password, // In a real app, this would be hashed.
+                password: password, // In a real app, this would be hashed.
                 isPro: false,
+                createdAt: new Date().toISOString(),
             };
 
             users.push(newUser);
             saveUsers(users);
+            
+            // Verify password was saved
+            const savedUsers = getUsers();
+            const savedUser = savedUsers.find(u => u.email === email);
+            if (!savedUser || !savedUser.password) {
+                console.error('❌ Password was not saved correctly during sign-up');
+                throw new Error('Failed to save password. Please try again.');
+            }
 
             const session = createSession(newUser);
             resolve(session);
@@ -117,6 +126,47 @@ export const getCurrentUser = async (): Promise<{ profile: UserProfile, userId?:
         };
     }
     return null;
+};
+
+/**
+ * Resets a user's password (for localStorage fallback only).
+ * In production, this would send an email with a reset link.
+ * @param email The user's email address
+ * @param newPassword The new password to set
+ * @throws Will throw an error if the user is not found.
+ */
+export const resetPassword = async (email: string, newPassword: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            const users = getUsers();
+            const userIndex = users.findIndex(u => u.email === email);
+
+            if (userIndex === -1) {
+                return reject(new Error('No account found with this email address.'));
+            }
+
+            // Update the password
+            users[userIndex].password = newPassword; // In a real app, this would be hashed.
+            saveUsers(users);
+
+            resolve();
+        }, 500);
+    });
+};
+
+/**
+ * Checks if an email exists in the system (for password reset).
+ * @param email The email to check
+ * @returns true if the email exists, false otherwise
+ */
+export const emailExists = async (email: string): Promise<boolean> => {
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            const users = getUsers();
+            const exists = users.some(u => u.email === email);
+            resolve(exists);
+        }, 300);
+    });
 };
 
 /**

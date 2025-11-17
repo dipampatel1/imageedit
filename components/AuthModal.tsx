@@ -11,7 +11,7 @@ interface AuthModalProps {
 }
 
 const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTab = 'signin' }) => {
-    const [activeTab, setActiveTab] = useState<'signin' | 'signup'>(initialTab);
+    const [activeTab, setActiveTab] = useState<'signin' | 'signup' | 'forgot' | 'reset'>(initialTab);
     
     // Update tab when initialTab prop changes
     React.useEffect(() => {
@@ -20,6 +20,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -130,6 +132,79 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
             setIsLoading(false);
         }
     };
+
+    const handleForgotPassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+        
+        if (!email) {
+            setError("Email address is required.");
+            return;
+        }
+
+        setIsLoading(true);
+
+        try {
+            // Check if email exists
+            const exists = await authService.emailExists(email);
+            if (!exists) {
+                setError("No account found with this email address.");
+                setIsLoading(false);
+                return;
+            }
+
+            // For localStorage fallback, we'll allow direct password reset
+            // In production, this would send an email with a reset link
+            setError(null);
+            setActiveTab('reset'); // Switch to reset password form
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleResetPassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+
+        if (!email) {
+            setError("Email address is required.");
+            return;
+        }
+
+        if (!newPassword || !confirmPassword) {
+            setError("Both password fields are required.");
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            setError("Password must be at least 6 characters long.");
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            setError("Passwords do not match.");
+            return;
+        }
+
+        setIsLoading(true);
+
+        try {
+            await authService.resetPassword(email, newPassword);
+            setError(null);
+            // Show success message and switch to sign in
+            setActiveTab('signin');
+            setPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
+            alert('Password reset successful! Please sign in with your new password.');
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
     
     const renderForm = () => {
         if (activeTab === 'signup') {
@@ -145,10 +220,60 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-300 mb-1" htmlFor="password-signup">Password</label>
-                        <input id="password-signup" type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-2 bg-slate-900 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500" required />
+                        <input id="password-signup" type="password" value={password} onChange={e => setPassword(e.target.value)} minLength={6} className="w-full p-2 bg-slate-900 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500" required />
+                        <p className="text-xs text-slate-400 mt-1">Password must be at least 6 characters</p>
                     </div>
                     <button type="submit" disabled={isLoading} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-lg transition-colors disabled:bg-slate-600">
                         {isLoading ? 'Creating Account...' : 'Create Account'}
+                    </button>
+                </form>
+            );
+        }
+
+        if (activeTab === 'forgot') {
+            return (
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                    <p className="text-sm text-slate-400 mb-4">
+                        Enter your email address and we'll help you reset your password.
+                    </p>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1" htmlFor="email-forgot">Email Address</label>
+                        <input id="email-forgot" type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-2 bg-slate-900 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500" required />
+                    </div>
+                    <button type="submit" disabled={isLoading} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-lg transition-colors disabled:bg-slate-600">
+                        {isLoading ? 'Checking...' : 'Continue'}
+                    </button>
+                    <button type="button" onClick={() => setActiveTab('signin')} className="w-full text-slate-400 hover:text-white text-sm mt-2">
+                        Back to Sign In
+                    </button>
+                </form>
+            );
+        }
+
+        if (activeTab === 'reset') {
+            return (
+                <form onSubmit={handleResetPassword} className="space-y-4">
+                    <p className="text-sm text-slate-400 mb-4">
+                        Enter your new password below.
+                    </p>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1" htmlFor="email-reset">Email Address</label>
+                        <input id="email-reset" type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-2 bg-slate-900 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500" required readOnly />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1" htmlFor="new-password">New Password</label>
+                        <input id="new-password" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} minLength={6} className="w-full p-2 bg-slate-900 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500" required />
+                        <p className="text-xs text-slate-400 mt-1">Password must be at least 6 characters</p>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1" htmlFor="confirm-password">Confirm New Password</label>
+                        <input id="confirm-password" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} minLength={6} className="w-full p-2 bg-slate-900 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500" required />
+                    </div>
+                    <button type="submit" disabled={isLoading} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-lg transition-colors disabled:bg-slate-600">
+                        {isLoading ? 'Resetting Password...' : 'Reset Password'}
+                    </button>
+                    <button type="button" onClick={() => setActiveTab('signin')} className="w-full text-slate-400 hover:text-white text-sm mt-2">
+                        Back to Sign In
                     </button>
                 </form>
             );
@@ -163,6 +288,11 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
                 <div>
                     <label className="block text-sm font-medium text-slate-300 mb-1" htmlFor="password-signin">Password</label>
                     <input id="password-signin" type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-2 bg-slate-900 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500" required />
+                </div>
+                <div className="text-right">
+                    <button type="button" onClick={() => setActiveTab('forgot')} className="text-sm text-cyan-400 hover:text-cyan-300">
+                        Forgot Password?
+                    </button>
                 </div>
                  <button type="submit" disabled={isLoading} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-lg transition-colors disabled:bg-slate-600">
                     {isLoading ? 'Signing In...' : 'Sign In'}
@@ -183,17 +313,32 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
                     <div className="text-center mb-6">
                         <LogoIcon className="h-8 w-auto mx-auto mb-4" />
                         <h2 className="text-2xl font-bold text-white">
-                            {activeTab === 'signin' ? 'Welcome Back' : 'Create an Account'}
+                            {activeTab === 'signin' ? 'Welcome Back' : 
+                             activeTab === 'signup' ? 'Create an Account' :
+                             activeTab === 'forgot' ? 'Forgot Password' :
+                             'Reset Password'}
                         </h2>
                     </div>
-                    <div className="flex border-b border-slate-700 mb-6">
-                        <button onClick={() => setActiveTab('signin')} className={`flex-1 py-2 text-sm font-semibold transition-colors ${activeTab === 'signin' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400 hover:text-white'}`}>
-                            Sign In
-                        </button>
-                        <button onClick={() => setActiveTab('signup')} className={`flex-1 py-2 text-sm font-semibold transition-colors ${activeTab === 'signup' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400 hover:text-white'}`}>
-                            Sign Up
-                        </button>
-                    </div>
+                    {(activeTab === 'signin' || activeTab === 'signup') && (
+                        <div className="flex border-b border-slate-700 mb-6">
+                            <button onClick={() => setActiveTab('signin')} className={`flex-1 py-2 text-sm font-semibold transition-colors ${activeTab === 'signin' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400 hover:text-white'}`}>
+                                Sign In
+                            </button>
+                            <button onClick={() => setActiveTab('signup')} className={`flex-1 py-2 text-sm font-semibold transition-colors ${activeTab === 'signup' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-slate-400 hover:text-white'}`}>
+                                Sign Up
+                            </button>
+                        </div>
+                    )}
+                    {activeTab === 'forgot' && (
+                        <div className="mb-6">
+                            <h3 className="text-lg font-semibold text-white">Reset Password</h3>
+                        </div>
+                    )}
+                    {activeTab === 'reset' && (
+                        <div className="mb-6">
+                            <h3 className="text-lg font-semibold text-white">Set New Password</h3>
+                        </div>
+                    )}
 
                     {error && <div className="bg-red-900/50 text-red-300 text-sm p-3 rounded-lg mb-4 text-center">{error}</div>}
 
