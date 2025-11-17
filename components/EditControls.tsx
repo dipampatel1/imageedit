@@ -37,33 +37,39 @@ const EditControls: React.FC<EditControlsProps> = ({ mode, prompt, setPrompt, as
   const isGenerationDisabled = isLoading || !isReady || !prompt.trim();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h2 className="text-lg font-semibold text-cyan-400 mb-4">{mode === 'edit' ? '2. Configure Edit' : '2. Describe Your Image'}</h2>
-        <div className="flex flex-col space-y-4">
+        <h2 className="text-2xl font-bold text-gradient-primary mb-6 flex items-center gap-2">
+          <MagicWandIcon className="w-6 h-6" />
+          {mode === 'edit' ? 'Configure Your Edit' : 'Describe Your Vision'}
+        </h2>
+        <div className="flex flex-col space-y-5">
           <div>
-            <label htmlFor="prompt-textarea" className="block text-sm font-medium text-slate-300 mb-2">{mode === 'edit' ? 'Editing Instructions' : 'Image Description'}</label>
+            <label htmlFor="prompt-textarea" className="block text-sm font-semibold text-slate-200 mb-3">{mode === 'edit' ? '✨ Editing Instructions' : '🎨 Image Description'}</label>
             <textarea
               id="prompt-textarea"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder={mode === 'edit' ? "e.g., 'Add a magical glow to the mountains' or 'Change the car's color to cherry red'" : "e.g., 'A photo of a white cat wearing sunglasses, studio lighting'"}
-              className="w-full p-3 bg-slate-900 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-colors placeholder-slate-500"
-              rows={3}
+              className="w-full p-4 glass-dark border-2 border-white/10 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:border-purple-400 transition-all duration-300 placeholder-slate-400 text-white resize-none"
+              rows={4}
               disabled={!isReady && mode === 'edit'}
             />
           </div>
-          <div className="flex flex-wrap gap-2">
-            {popularPrompts.map((p) => (
-              <button
-                key={p}
-                onClick={() => setPrompt(p)}
-                disabled={!isReady && mode === 'edit'}
-                className="px-3 py-1 text-xs bg-slate-700 hover:bg-cyan-800 disabled:bg-slate-800 disabled:text-slate-500 rounded-full transition-colors"
-              >
-                {p}
-              </button>
-            ))}
+          <div>
+            <p className="text-xs font-medium text-slate-400 mb-3">💡 Quick Prompts:</p>
+            <div className="flex flex-wrap gap-2">
+              {popularPrompts.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPrompt(p)}
+                  disabled={!isReady && mode === 'edit'}
+                  className="px-4 py-2 text-xs font-medium glass-effect border border-white/10 hover:border-purple-400/50 disabled:opacity-50 disabled:cursor-not-allowed rounded-full transition-all duration-300 hover:scale-105"
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>

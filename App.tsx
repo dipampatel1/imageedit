@@ -183,28 +183,49 @@ function App() {
         {originalImages.length === 0 && editedImages.length === 0 && <HeroSection onStartEditing={handleStartEditing} />}
         
         <div ref={editorRef}>
-            <div className="flex justify-center mb-8">
-                <div className="bg-slate-800/50 border border-slate-700 rounded-full p-1 flex items-center space-x-1">
-                    <button onClick={() => handleModeChange('edit')} className={`px-6 py-2 rounded-full text-sm font-semibold transition-colors ${mode === 'edit' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
-                        Edit Image
+            <div className="flex justify-center mb-12">
+                <div className="glass-effect border-2 border-white/20 rounded-full p-1.5 flex items-center space-x-2 shadow-xl">
+                    <button 
+                        onClick={() => handleModeChange('edit')} 
+                        className={`px-8 py-3 rounded-full text-sm font-bold transition-all duration-300 transform ${
+                            mode === 'edit' 
+                                ? 'bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 text-white shadow-lg glow-cyan scale-105' 
+                                : 'text-slate-300 hover:text-white hover:bg-white/5'
+                        }`}
+                    >
+                        ✏️ Edit Image
                     </button>
-                    <button onClick={() => handleModeChange('generate')} className={`px-6 py-2 rounded-full text-sm font-semibold transition-colors ${mode === 'generate' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
-                        Generate Image
+                    <button 
+                        onClick={() => handleModeChange('generate')} 
+                        className={`px-8 py-3 rounded-full text-sm font-bold transition-all duration-300 transform ${
+                            mode === 'generate' 
+                                ? 'bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 text-white shadow-lg glow-cyan scale-105' 
+                                : 'text-slate-300 hover:text-white hover:bg-white/5'
+                        }`}
+                    >
+                        ✨ Generate Image
                     </button>
                 </div>
             </div>
 
             {usageWarning && (
-              <div className="mb-4 bg-yellow-900/50 border border-yellow-700 text-yellow-300 p-4 rounded-lg">
-                <p className="font-semibold">Usage Warning</p>
-                <p className="text-sm">{usageWarning}</p>
+              <div className="mb-6 glass-effect border-2 border-yellow-400/30 text-yellow-200 p-5 rounded-2xl shadow-lg glow-pink">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-yellow-400 to-orange-400 flex items-center justify-center">
+                    <span className="text-lg">⚠️</span>
+                  </div>
+                  <div>
+                    <p className="font-bold text-yellow-100">Usage Warning</p>
+                    <p className="text-sm text-yellow-200/80">{usageWarning}</p>
+                  </div>
+                </div>
               </div>
             )}
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div className="flex flex-col space-y-6">
                 {mode === 'edit' && (
-                    <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-6 shadow-lg border border-slate-700">
+                    <div className="glass-effect rounded-3xl p-8 shadow-2xl border-2 border-white/10 hover:border-purple-400/30 transition-all duration-300">
                         <ImageUploader 
                           onImagesUpload={handleImagesUpload} 
                           onImageRemove={handleRemoveImage}
@@ -213,7 +234,7 @@ function App() {
                         />
                     </div>
                 )}
-                <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-6 shadow-lg border border-slate-700">
+                <div className="glass-effect rounded-3xl p-8 shadow-2xl border-2 border-white/10 hover:border-cyan-400/30 transition-all duration-300">
                     <EditControls
                       mode={mode}
                       prompt={prompt}
@@ -227,7 +248,7 @@ function App() {
                 </div>
               </div>
     
-              <div className="flex flex-col bg-slate-800/50 backdrop-blur-xl rounded-2xl p-6 shadow-lg border border-slate-700">
+              <div className="flex flex-col glass-effect rounded-3xl p-8 shadow-2xl border-2 border-white/10 hover:border-pink-400/30 transition-all duration-300">
                 <GeneratedImage 
                   editedImages={editedImages}
                   isLoading={isLoading}

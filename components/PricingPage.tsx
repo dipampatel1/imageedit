@@ -38,34 +38,47 @@ export const PricingPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 py-16 px-4">
-      <div className="container mx-auto max-w-6xl">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
-            Choose Your Plan
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-purple-950 to-indigo-950 py-20 px-4 relative overflow-hidden">
+      {/* Animated background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse-slow"></div>
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1.5s' }}></div>
+      </div>
+      
+      <div className="container mx-auto max-w-6xl relative z-10">
+        <div className="text-center mb-16">
+          <div className="inline-block mb-4 px-4 py-2 rounded-full glass-effect border border-purple-400/30">
+            <span className="text-sm font-semibold text-gradient-primary">💰 Transparent Pricing</span>
+          </div>
+          <h1 className="text-5xl md:text-7xl font-extrabold mb-6">
+            <span className="text-gradient-primary">Choose Your</span>
+            <br />
+            <span className="text-white">Creative Plan</span>
           </h1>
-          <p className="text-xl text-slate-400 mb-8">
-            Competitive pricing with industry-leading features
+          <p className="text-xl md:text-2xl text-slate-300 mb-10 max-w-2xl mx-auto">
+            Competitive pricing with industry-leading features. Start free, upgrade anytime.
           </p>
 
           {/* Billing Toggle */}
-          <div className="flex items-center justify-center gap-4 mb-8">
-            <span className={`text-sm ${billingCycle === 'monthly' ? 'text-white font-semibold' : 'text-slate-400'}`}>
+          <div className="flex items-center justify-center gap-4 mb-12">
+            <span className={`text-base font-semibold transition-colors ${billingCycle === 'monthly' ? 'text-white' : 'text-slate-400'}`}>
               Monthly
             </span>
             <button
               onClick={() => setBillingCycle(billingCycle === 'monthly' ? 'annual' : 'monthly')}
-              className="relative w-14 h-7 bg-slate-700 rounded-full transition-colors"
+              className="relative w-16 h-9 bg-gradient-to-r from-purple-600 to-cyan-600 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl"
             >
               <div
-                className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full transition-transform ${
+                className={`absolute top-1 left-1 w-7 h-7 bg-white rounded-full transition-transform duration-300 shadow-lg ${
                   billingCycle === 'annual' ? 'translate-x-7' : ''
                 }`}
               />
             </button>
-            <span className={`text-sm ${billingCycle === 'annual' ? 'text-white font-semibold' : 'text-slate-400'}`}>
+            <span className={`text-base font-semibold transition-colors ${billingCycle === 'annual' ? 'text-white' : 'text-slate-400'}`}>
               Annual
-              <span className="ml-2 text-cyan-400 text-xs">Save {ANNUAL_DISCOUNT * 100}%</span>
+              <span className="ml-2 px-2 py-1 bg-gradient-to-r from-green-400 to-emerald-400 text-black text-xs font-bold rounded-full">
+                Save {ANNUAL_DISCOUNT * 100}%
+              </span>
             </span>
           </div>
         </div>

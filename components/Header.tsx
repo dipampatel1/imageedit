@@ -79,7 +79,7 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage = 'home'
   };
 
   return (
-    <header className="bg-slate-900/60 backdrop-blur-lg border-b border-slate-700 sticky top-0 z-20">
+    <header className="glass-dark border-b border-white/10 sticky top-0 z-20 shadow-lg">
       <div className="container mx-auto px-4 md:px-8 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-8">
@@ -180,7 +180,7 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage = 'home'
               </button>
               <button
                 onClick={handleSignUpClick}
-                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded-lg transition-colors"
+                className="px-6 py-2.5 bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg glow-cyan"
               >
                 Sign Up
               </button>
