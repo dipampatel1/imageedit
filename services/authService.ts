@@ -1,125 +1,199 @@
 import type { UserProfile } from '../types';
-import { useUser, useStackApp } from '@stackframe/stack';
 import { stackServerApp } from '../stack';
 
 /**
- * Neon Auth (Stack Auth) Integration
- * Users are automatically created in the neon_auth schema when signing up via Stack Auth.
- * This service provides a wrapper around Stack Auth for backward compatibility.
+ * Authentication Service with Stack Auth and localStorage fallback
+ * Tries Stack Auth first, falls back to localStorage if Stack Auth is not configured
  */
 
+// Helper to generate stable user ID from email (for localStorage)
+const generateUserIdFromEmail = (email: string): string => {
+    // Simple hash function for consistent user IDs
+    let hash = 0;
+    for (let i = 0; i < email.length; i++) {
+        const char = email.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    return `user_${Math.abs(hash)}`;
+};
+
 /**
- * Registers a new user via Stack Auth (creates in neon_auth schema).
+ * Registers a new user via Stack Auth (creates in neon_auth schema) or localStorage fallback.
  * @throws Will throw an error if the email is already in use or sign-up fails.
  */
 export const signUp = async (name: string, email: string, password: string): Promise<{ profile: UserProfile, userId?: string }> => {
     try {
-        // Use Stack Auth for sign-up (creates user in neon_auth schema)
+        // Try Stack Auth first
         const result = await stackServerApp.signUpWithCredential({
             email,
             password,
             displayName: name,
         });
 
-        if (!result.user) {
-            throw new Error('Failed to create user account. Please try again.');
+        if (result.user) {
+            return {
+                profile: {
+                    name: result.user.displayName || name,
+                    email: result.user.primaryEmail || email,
+                    imageUrl: result.user.profileImageUrl || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(name)}`,
+                },
+                userId: result.user.id,
+            };
         }
-
-        // Return user profile in expected format
-        return {
-            profile: {
-                name: result.user.displayName || name,
-                email: result.user.primaryEmail || email,
-                imageUrl: result.user.profileImageUrl || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(name)}`,
-            },
-            userId: result.user.id,
-        };
     } catch (error: any) {
-        console.error('❌ Stack Auth sign-up error:', error);
+        // If Stack Auth fails with "not configured", fall back to localStorage
+        if (error.message?.includes('not configured') || error.message?.includes('Stack Auth is not configured')) {
+            // Fallback to localStorage
+            const existingUsers = JSON.parse(localStorage.getItem('users') || '{}');
+            if (existingUsers[email]) {
+                throw new Error('An account with this email already exists.');
+            }
+            
+            const userId = generateUserIdFromEmail(email);
+            const userProfile: UserProfile = {
+                name,
+                email,
+                imageUrl: `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(name)}`,
+            };
+            
+            // Store user in localStorage
+            existingUsers[email] = {
+                userId,
+                profile: userProfile,
+                password: password, // In production, this should be hashed
+            };
+            localStorage.setItem('users', JSON.stringify(existingUsers));
+            localStorage.setItem('currentUser', JSON.stringify({ userId, profile: userProfile }));
+            
+            return { profile: userProfile, userId };
+        }
         
-        // Handle specific error cases
+        // Handle other Stack Auth errors
         if (error.message?.includes('already exists') || error.message?.includes('already registered')) {
             throw new Error('An account with this email already exists.');
         }
         
         throw new Error(error.message || 'Failed to create account. Please try again.');
     }
+    
+    throw new Error('Failed to create user account. Please try again.');
 };
 
 /**
- * Signs in an existing user via Stack Auth.
+ * Signs in an existing user via Stack Auth or localStorage fallback.
  * @throws Will throw an error for invalid credentials.
  */
 export const signIn = async (email: string, password: string): Promise<{ profile: UserProfile, userId?: string }> => {
     try {
-        // Use Stack Auth for sign-in
+        // Try Stack Auth first
         const result = await stackServerApp.signInWithCredential({
             email,
             password,
         });
 
-        if (!result.user) {
-            throw new Error('Invalid email or password.');
+        if (result.user) {
+            return {
+                profile: {
+                    name: result.user.displayName || '',
+                    email: result.user.primaryEmail || email,
+                    imageUrl: result.user.profileImageUrl || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(result.user.displayName || email)}`,
+                },
+                userId: result.user.id,
+            };
         }
-
-        // Return user profile in expected format
-        return {
-            profile: {
-                name: result.user.displayName || '',
-                email: result.user.primaryEmail || email,
-                imageUrl: result.user.profileImageUrl || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(result.user.displayName || email)}`,
-            },
-            userId: result.user.id,
-        };
     } catch (error: any) {
-        console.error('❌ Stack Auth sign-in error:', error);
+        // If Stack Auth fails with "not configured", fall back to localStorage
+        if (error.message?.includes('not configured') || error.message?.includes('Stack Auth is not configured')) {
+            // Fallback to localStorage
+            const existingUsers = JSON.parse(localStorage.getItem('users') || '{}');
+            const user = existingUsers[email];
+            
+            if (!user || user.password !== password) {
+                throw new Error('Invalid email or password.');
+            }
+            
+            // Set current user
+            localStorage.setItem('currentUser', JSON.stringify({ userId: user.userId, profile: user.profile }));
+            
+            return { profile: user.profile, userId: user.userId };
+        }
         
+        // Handle other Stack Auth errors
         if (error.message?.includes('Invalid') || error.message?.includes('password') || error.message?.includes('credentials')) {
             throw new Error('Invalid email or password.');
         }
         
         throw new Error(error.message || 'Failed to sign in. Please try again.');
     }
+    
+    throw new Error('Invalid email or password.');
 };
 
 /**
- * Signs out the current user via Stack Auth.
+ * Signs out the current user via Stack Auth or localStorage.
  */
 export const signOut = async (): Promise<void> => {
     try {
         await stackServerApp.signOut();
-    } catch (error) {
-        console.error('❌ Stack Auth sign-out error:', error);
-        // Don't throw - sign-out should always succeed
+    } catch (error: any) {
+        // If Stack Auth fails, clear localStorage
+        if (error.message?.includes('not configured') || error.message?.includes('Stack Auth is not configured')) {
+            localStorage.removeItem('currentUser');
+            return;
+        }
     }
+    
+    // Always clear localStorage as fallback
+    localStorage.removeItem('currentUser');
 };
 
 /**
- * Gets the currently signed-in user from Stack Auth.
+ * Gets the currently signed-in user from Stack Auth or localStorage.
  * Note: Subscription tier is NOT stored in auth - it comes from user_usage table.
  * Use getUserUsage() from usageService to get subscription tier.
  * @returns The user session object or null if not signed in.
  */
 export const getCurrentUser = async (): Promise<{ profile: UserProfile, userId?: string } | null> => {
     try {
+        // Try Stack Auth first
         const user = await stackServerApp.getUser();
-        
-        if (!user) {
+        if (user) {
+            return {
+                profile: {
+                    name: user.displayName || '',
+                    email: user.primaryEmail || '',
+                    imageUrl: user.profileImageUrl || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(user.displayName || user.primaryEmail || '')}`,
+                },
+                userId: user.id,
+            };
+        }
+    } catch (error: any) {
+        // If Stack Auth fails, fall back to localStorage
+        if (error.message?.includes('not configured') || error.message?.includes('Stack Auth is not configured')) {
+            const currentUserStr = localStorage.getItem('currentUser');
+            if (currentUserStr) {
+                try {
+                    return JSON.parse(currentUserStr);
+                } catch {
+                    return null;
+                }
+            }
             return null;
         }
-
-        return {
-            profile: {
-                name: user.displayName || '',
-                email: user.primaryEmail || '',
-                imageUrl: user.profileImageUrl || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(user.displayName || user.primaryEmail || '')}`,
-            },
-            userId: user.id,
-        };
-    } catch (error) {
-        console.error('❌ Error getting user from Stack Auth:', error);
-        return null;
     }
+    
+    // Fallback to localStorage
+    const currentUserStr = localStorage.getItem('currentUser');
+    if (currentUserStr) {
+        try {
+            return JSON.parse(currentUserStr);
+        } catch {
+            return null;
+        }
+    }
+    
+    return null;
 };
 
 /**

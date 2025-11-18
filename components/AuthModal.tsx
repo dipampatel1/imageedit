@@ -106,29 +106,16 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
         setIsLoading(true);
 
         try {
-            if (isStackAuthConfigured && StackAuthComponents) {
-                // Use Stack Auth for sign-up
-                const { stackServerApp } = await import('../stack');
-                const result = await stackServerApp.signUpWithCredential({
-                    email,
-                    password,
-                    displayName: name,
-                });
-
-                if (!result.user) {
-                    throw new Error('Failed to create user account. Please try again.');
-                }
-
-                // Initialize user in user_usage table
-                if (result.user.id && result.user.primaryEmail) {
-                    await initializeUser(result.user.id, result.user.primaryEmail, result.user.displayName || name);
-                }
-                
-                onAuthSuccess();
-            } else {
-                // Fallback to localStorage (for backward compatibility)
-                setError("⚠️ Stack Auth is not configured. Please set up Neon Auth to enable sign-up.");
+            // Use authService which handles both Stack Auth and localStorage fallback
+            const { signUp } = await import('../services/authService');
+            const result = await signUp(name, email, password);
+            
+            // Initialize user in user_usage table
+            if (result.userId && result.profile.email) {
+                await initializeUser(result.userId, result.profile.email, result.profile.name || name);
             }
+            
+            onAuthSuccess();
         } catch (err) {
             console.error('❌ Sign up error:', err);
             setError(err instanceof Error ? err.message : 'An unknown error occurred.');
@@ -147,23 +134,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
         setIsLoading(true);
 
         try {
-            if (isStackAuthConfigured) {
-                // Use Stack Auth for sign-in
-                const { stackServerApp } = await import('../stack');
-                const result = await stackServerApp.signInWithCredential({
-                    email,
-                    password,
-                });
-
-                if (!result.user) {
-                    throw new Error('Invalid email or password.');
-                }
-                
-                onAuthSuccess();
-            } else {
-                // Fallback to localStorage (for backward compatibility)
-                setError("⚠️ Stack Auth is not configured. Please set up Neon Auth to enable sign-in.");
-            }
+            // Use authService which handles both Stack Auth and localStorage fallback
+            const { signIn } = await import('../services/authService');
+            await signIn(email, password);
+            onAuthSuccess();
         } catch (err) {
             console.error('❌ Sign in error:', err);
             setError(err instanceof Error ? err.message : 'An unknown error occurred.');
@@ -259,30 +233,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
     
     const renderForm = () => {
         if (activeTab === 'signup') {
-            if (!isStackAuthConfigured) {
-                return (
-                    <div className="space-y-4">
-                        <div className="bg-yellow-900/50 text-yellow-300 text-sm p-4 rounded-lg">
-                            <p className="font-semibold mb-2">⚠️ Neon Auth Not Configured</p>
-                            <p className="mb-2">Stack Auth credentials are missing. Users will be created in the public schema instead of neon_auth.</p>
-                            <p className="text-xs mt-2">To fix this:</p>
-                            <ol className="text-xs list-decimal list-inside mt-1 space-y-1">
-                                <li>Provision Neon Auth in Neon Console</li>
-                                <li>Add NEXT_PUBLIC_STACK_PROJECT_ID to Netlify</li>
-                                <li>Add NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY to Netlify</li>
-                                <li>Redeploy your site</li>
-                            </ol>
-                            <p className="text-xs mt-2">
-                                See <code className="bg-yellow-800/50 px-1 rounded">PROVISION_NEON_AUTH.md</code> for details.
-                            </p>
-                        </div>
-                        <div className="bg-red-900/50 text-red-300 text-sm p-3 rounded-lg">
-                            <p>⚠️ Sign up is disabled until Neon Auth is configured.</p>
-                        </div>
-                    </div>
-                );
-            }
-            
             return (
                 <form onSubmit={handleSignUp} className="space-y-4">
                     <div>
@@ -351,20 +301,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
                         Back to Sign In
                     </button>
                 </form>
-            );
-        }
-
-        if (!isStackAuthConfigured) {
-            return (
-                <div className="space-y-4">
-                    <div className="bg-yellow-900/50 text-yellow-300 text-sm p-4 rounded-lg">
-                        <p className="font-semibold mb-2">⚠️ Neon Auth Not Configured</p>
-                        <p className="mb-2">Stack Auth credentials are missing. Please configure Neon Auth to enable sign in.</p>
-                        <p className="text-xs mt-2">
-                            See <code className="bg-yellow-800/50 px-1 rounded">PROVISION_NEON_AUTH.md</code> for setup instructions.
-                        </p>
-                    </div>
-                </div>
             );
         }
 
