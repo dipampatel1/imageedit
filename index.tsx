@@ -1,7 +1,6 @@
 import './index.css';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { StackProvider, StackTheme } from '@stackframe/stack';
 import App from './App';
 
 const rootElement = document.getElementById('root');
@@ -29,25 +28,33 @@ if (!isStackAuthConfigured) {
 
 const root = ReactDOM.createRoot(rootElement);
 
-// Always render App, but wrap with StackProvider only if configured
-try {
-  root.render(
-    <React.StrictMode>
-      {isStackAuthConfigured ? (
-        <StackProvider projectId={projectId} publishableClientKey={publishableClientKey}>
-          <StackTheme>
-            <App />
-          </StackTheme>
-        </StackProvider>
-      ) : (
-        // Fallback: Render app without Stack Auth (will use localStorage)
-        <App />
-      )}
-    </React.StrictMode>
-  );
-} catch (error) {
-  console.error('❌ Error rendering app:', error);
-  // Fallback: Render app without Stack Auth if there's an error
+// Render app immediately - Stack Auth will be loaded dynamically if needed
+// This ensures the app always renders, even if Stack Auth fails to load
+if (isStackAuthConfigured) {
+  // Try to load Stack Auth, but don't block rendering
+  import('@stackframe/stack')
+    .then(({ StackProvider, StackTheme }) => {
+      root.render(
+        <React.StrictMode>
+          <StackProvider projectId={projectId} publishableClientKey={publishableClientKey}>
+            <StackTheme>
+              <App />
+            </StackTheme>
+          </StackProvider>
+        </React.StrictMode>
+      );
+    })
+    .catch((error) => {
+      console.error('❌ Error loading Stack Auth, rendering app without it:', error);
+      // Fallback: Render app without Stack Auth
+      root.render(
+        <React.StrictMode>
+          <App />
+        </React.StrictMode>
+      );
+    });
+} else {
+  // Render app without Stack Auth (will use localStorage)
   root.render(
     <React.StrictMode>
       <App />
