@@ -73,15 +73,22 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
         console.log('  Project ID:', projectId ? `${projectId.substring(0, 10)}...` : '❌ MISSING');
         console.log('  Publishable Key:', publishableKey ? `${publishableKey.substring(0, 10)}...` : '❌ MISSING');
         console.log('  Stack Auth configured:', isStackAuthConfigured);
-        console.log('  Stack Auth ready:', stackAuthReady);
         
-        if (!isStackAuthConfigured) {
+        // Validate credentials are not just empty strings
+        const hasValidProjectId = projectId && projectId.trim().length > 0 && projectId.trim() !== '';
+        const hasValidPublishableKey = publishableKey && publishableKey.trim().length > 0 && publishableKey.trim() !== '';
+        
+        console.log('  Valid Project ID:', hasValidProjectId);
+        console.log('  Valid Publishable Key:', hasValidPublishableKey);
+        
+        if (!isStackAuthConfigured || !hasValidProjectId || !hasValidPublishableKey) {
             console.error('❌ Stack Auth is NOT configured! Users will be created in public schema.');
             console.error('❌ Please follow PROVISION_NEON_AUTH.md to set up Neon Auth.');
+            console.error('❌ Check that environment variables are set in Netlify and not empty.');
         } else {
             console.log('✅ Stack Auth is configured. Users should be created in neon_auth schema.');
         }
-    }, [projectId, publishableKey, isStackAuthConfigured, stackAuthReady]);
+    }, [projectId, publishableKey, isStackAuthConfigured]);
 
     const handleSignUp = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -140,7 +147,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
         setIsLoading(true);
 
         try {
-            if (isStackAuthConfigured && StackAuthComponents) {
+            if (isStackAuthConfigured) {
                 // Use Stack Auth for sign-in
                 const { stackServerApp } = await import('../stack');
                 const result = await stackServerApp.signInWithCredential({
@@ -177,7 +184,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
         setIsLoading(true);
 
         try {
-            if (isStackAuthConfigured && StackAuthComponents) {
+            if (isStackAuthConfigured) {
                 const { stackServerApp } = await import('../stack');
                 const userByEmail = await stackServerApp.getUserByEmail(email);
                 
@@ -222,7 +229,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
         setIsLoading(true);
 
         try {
-            if (isStackAuthConfigured && StackAuthComponents) {
+            if (isStackAuthConfigured) {
                 const { stackServerApp } = await import('../stack');
                 const userByEmail = await stackServerApp.getUserByEmail(email);
                 

@@ -12,8 +12,16 @@ if (!rootElement) {
 const projectId = import.meta.env.NEXT_PUBLIC_STACK_PROJECT_ID || import.meta.env.VITE_STACK_PROJECT_ID || '';
 const publishableClientKey = import.meta.env.NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY || import.meta.env.VITE_STACK_PUBLISHABLE_CLIENT_KEY || '';
 
-// Check if Stack Auth is properly configured
-const isStackAuthConfigured = projectId && publishableClientKey && projectId.trim() !== '' && publishableClientKey.trim() !== '';
+// Check if Stack Auth is properly configured (must be non-empty strings)
+const isStackAuthConfigured = 
+  projectId && 
+  publishableClientKey && 
+  typeof projectId === 'string' && 
+  typeof publishableClientKey === 'string' &&
+  projectId.trim().length > 0 && 
+  publishableClientKey.trim().length > 0 &&
+  !projectId.startsWith('undefined') &&
+  !publishableClientKey.startsWith('undefined');
 
 // Warn if Stack Auth credentials are missing
 if (!isStackAuthConfigured) {
