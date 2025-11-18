@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useUser, useStackApp, SignUp, SignIn } from '@stackframe/stack';
 import { LogoIcon } from './icons/LogoIcon';
 import { initializeUser } from '../services/userService';
 
@@ -13,27 +12,41 @@ interface AuthModalProps {
 const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTab = 'signin' }) => {
     const [activeTab, setActiveTab] = useState<'signin' | 'signup' | 'forgot' | 'reset'>(initialTab);
     const [mounted, setMounted] = useState(false);
-    const user = useUser();
-    const stackApp = useStackApp();
     
-    // Debug: Check if Stack Auth is configured
+    // Check if Stack Auth is configured
+    const projectId = import.meta.env.NEXT_PUBLIC_STACK_PROJECT_ID || import.meta.env.VITE_STACK_PROJECT_ID || '';
+    const publishableKey = import.meta.env.NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY || import.meta.env.VITE_STACK_PUBLISHABLE_CLIENT_KEY || '';
+    const isStackAuthConfigured = projectId && publishableKey && projectId.trim() !== '' && publishableKey.trim() !== '';
+    
+    // Try to use Stack Auth hooks - they'll only work if StackProvider is configured
+    // We'll handle errors gracefully
+    let user = null;
+    let stackApp = null;
+    
+    // Dynamically import and use Stack Auth hooks only if configured
+    // This avoids errors when StackProvider isn't available
+    const [stackAuthReady, setStackAuthReady] = useState(false);
+    const [StackAuthComponents, setStackAuthComponents] = useState<any>(null);
+    
     useEffect(() => {
-        const projectId = import.meta.env.NEXT_PUBLIC_STACK_PROJECT_ID || import.meta.env.VITE_STACK_PROJECT_ID || '';
-        const publishableKey = import.meta.env.NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY || import.meta.env.VITE_STACK_PUBLISHABLE_CLIENT_KEY || '';
-        
-        console.log('🔵 AuthModal - Stack Auth Configuration Check:');
-        console.log('  Project ID:', projectId ? `${projectId.substring(0, 10)}...` : '❌ MISSING');
-        console.log('  Publishable Key:', publishableKey ? `${publishableKey.substring(0, 10)}...` : '❌ MISSING');
-        console.log('  Stack App available:', !!stackApp);
-        console.log('  Current user:', user ? `✅ ${user.primaryEmail}` : '❌ Not signed in');
-        
-        if (!projectId || !publishableKey) {
-            console.error('❌ Stack Auth is NOT configured! Users will be created in public schema.');
-            console.error('❌ Please follow PROVISION_NEON_AUTH.md to set up Neon Auth.');
-        } else {
-            console.log('✅ Stack Auth is configured. Users should be created in neon_auth schema.');
+        if (isStackAuthConfigured) {
+            // Dynamically import Stack Auth components
+            import('@stackframe/stack').then((stack) => {
+                try {
+                    // Try to use hooks - they'll throw if StackProvider isn't available
+                    // We'll handle this in the component rendering
+                    setStackAuthComponents(stack);
+                    setStackAuthReady(true);
+                } catch (error) {
+                    console.warn('⚠️ Stack Auth hooks not available:', error);
+                    setStackAuthReady(false);
+                }
+            }).catch((error) => {
+                console.warn('⚠️ Failed to load Stack Auth:', error);
+                setStackAuthReady(false);
+            });
         }
-    }, [stackApp, user]);
+    }, [isStackAuthConfigured]);
     
     // Update tab when initialTab prop changes
     React.useEffect(() => {
@@ -46,33 +59,111 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
         return () => setMounted(false);
     }, []);
 
-    // Watch for successful authentication
-    useEffect(() => {
-        if (user) {
-            // User successfully signed in/up
-            // Initialize user in user_usage table
-            if (user.id && user.primaryEmail) {
-                initializeUser(user.id, user.primaryEmail, user.displayName || '')
-                    .then((result) => {
-                        if (result && (result.user_id || result.userId)) {
-                            console.log('✅ User initialized in database');
-                        } else {
-                            console.warn('⚠️ User initialization returned invalid result');
-                        }
-                    })
-                    .catch((error) => {
-                        console.error('❌ Failed to initialize user in database:', error);
-                    });
-            }
-            onAuthSuccess();
-        }
-    }, [user, onAuthSuccess]);
-
+    const [name, setName] = useState('');
     const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+
+    // Debug: Log Stack Auth configuration
+    useEffect(() => {
+        console.log('🔵 AuthModal - Stack Auth Configuration Check:');
+        console.log('  Project ID:', projectId ? `${projectId.substring(0, 10)}...` : '❌ MISSING');
+        console.log('  Publishable Key:', publishableKey ? `${publishableKey.substring(0, 10)}...` : '❌ MISSING');
+        console.log('  Stack Auth configured:', isStackAuthConfigured);
+        console.log('  Stack Auth ready:', stackAuthReady);
+        
+        if (!isStackAuthConfigured) {
+            console.error('❌ Stack Auth is NOT configured! Users will be created in public schema.');
+            console.error('❌ Please follow PROVISION_NEON_AUTH.md to set up Neon Auth.');
+        } else {
+            console.log('✅ Stack Auth is configured. Users should be created in neon_auth schema.');
+        }
+    }, [projectId, publishableKey, isStackAuthConfigured, stackAuthReady]);
+
+    const handleSignUp = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+        
+        if (!name || !email || !password) {
+            setError("All fields are required.");
+            return;
+        }
+        if (password.length < 6) {
+            setError("Password must be at least 6 characters long.");
+            return;
+        }
+        
+        setIsLoading(true);
+
+        try {
+            if (isStackAuthConfigured && StackAuthComponents) {
+                // Use Stack Auth for sign-up
+                const { stackServerApp } = await import('../stack');
+                const result = await stackServerApp.signUpWithCredential({
+                    email,
+                    password,
+                    displayName: name,
+                });
+
+                if (!result.user) {
+                    throw new Error('Failed to create user account. Please try again.');
+                }
+
+                // Initialize user in user_usage table
+                if (result.user.id && result.user.primaryEmail) {
+                    await initializeUser(result.user.id, result.user.primaryEmail, result.user.displayName || name);
+                }
+                
+                onAuthSuccess();
+            } else {
+                // Fallback to localStorage (for backward compatibility)
+                setError("⚠️ Stack Auth is not configured. Please set up Neon Auth to enable sign-up.");
+            }
+        } catch (err) {
+            console.error('❌ Sign up error:', err);
+            setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSignIn = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+        if (!email || !password) {
+            setError("Email and password are required.");
+            return;
+        }
+        setIsLoading(true);
+
+        try {
+            if (isStackAuthConfigured && StackAuthComponents) {
+                // Use Stack Auth for sign-in
+                const { stackServerApp } = await import('../stack');
+                const result = await stackServerApp.signInWithCredential({
+                    email,
+                    password,
+                });
+
+                if (!result.user) {
+                    throw new Error('Invalid email or password.');
+                }
+                
+                onAuthSuccess();
+            } else {
+                // Fallback to localStorage (for backward compatibility)
+                setError("⚠️ Stack Auth is not configured. Please set up Neon Auth to enable sign-in.");
+            }
+        } catch (err) {
+            console.error('❌ Sign in error:', err);
+            setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const handleForgotPassword = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -86,19 +177,21 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
         setIsLoading(true);
 
         try {
-            // Check if email exists in Stack Auth
-            const userByEmail = await stackApp.getUserByEmail(email);
-            
-            if (!userByEmail) {
-                setError("No account found with this email address.");
-                setIsLoading(false);
-                return;
-            }
+            if (isStackAuthConfigured && StackAuthComponents) {
+                const { stackServerApp } = await import('../stack');
+                const userByEmail = await stackServerApp.getUserByEmail(email);
+                
+                if (!userByEmail) {
+                    setError("No account found with this email address.");
+                    setIsLoading(false);
+                    return;
+                }
 
-            // For Stack Auth, we'll use the password reset flow
-            // Switch to reset form
-            setError(null);
-            setActiveTab('reset');
+                setError(null);
+                setActiveTab('reset');
+            } else {
+                setError("⚠️ Stack Auth is not configured. Please set up Neon Auth to enable password reset.");
+            }
         } catch (err) {
             console.error('❌ Error in handleForgotPassword:', err);
             setError(err instanceof Error ? err.message : 'An unknown error occurred.');
@@ -111,13 +204,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
         e.preventDefault();
         setError(null);
 
-        if (!email) {
-            setError("Email address is required.");
-            return;
-        }
-
-        if (!newPassword || !confirmPassword) {
-            setError("Both password fields are required.");
+        if (!email || !newPassword || !confirmPassword) {
+            setError("All fields are required.");
             return;
         }
 
@@ -134,24 +222,26 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
         setIsLoading(true);
 
         try {
-            // Get user by email
-            const userByEmail = await stackApp.getUserByEmail(email);
-            
-            if (!userByEmail) {
-                setError("No account found with this email address.");
-                setIsLoading(false);
-                return;
-            }
+            if (isStackAuthConfigured && StackAuthComponents) {
+                const { stackServerApp } = await import('../stack');
+                const userByEmail = await stackServerApp.getUserByEmail(email);
+                
+                if (!userByEmail) {
+                    setError("No account found with this email address.");
+                    setIsLoading(false);
+                    return;
+                }
 
-            // Update password via Stack Auth
-            await stackApp.updateUserPassword(userByEmail.id, newPassword);
-            
-            setError(null);
-            // Show success message and switch to sign in
-            setActiveTab('signin');
-            setNewPassword('');
-            setConfirmPassword('');
-            alert('Password reset successful! Please sign in with your new password.');
+                await stackServerApp.updateUserPassword(userByEmail.id, newPassword);
+                
+                setError(null);
+                setActiveTab('signin');
+                setNewPassword('');
+                setConfirmPassword('');
+                alert('Password reset successful! Please sign in with your new password.');
+            } else {
+                setError("⚠️ Stack Auth is not configured. Please set up Neon Auth to enable password reset.");
+            }
         } catch (err) {
             console.error('❌ Error resetting password:', err);
             setError(err instanceof Error ? err.message : 'An unknown error occurred.');
@@ -162,20 +252,13 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
     
     const renderForm = () => {
         if (activeTab === 'signup') {
-            // Check if Stack Auth is configured
-            const projectId = import.meta.env.NEXT_PUBLIC_STACK_PROJECT_ID || import.meta.env.VITE_STACK_PROJECT_ID || '';
-            const publishableKey = import.meta.env.NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY || import.meta.env.VITE_STACK_PUBLISHABLE_CLIENT_KEY || '';
-            
-            if (!projectId || !publishableKey) {
-                // Stack Auth not configured - show error
+            if (!isStackAuthConfigured) {
                 return (
                     <div className="space-y-4">
                         <div className="bg-yellow-900/50 text-yellow-300 text-sm p-4 rounded-lg">
                             <p className="font-semibold mb-2">⚠️ Neon Auth Not Configured</p>
                             <p className="mb-2">Stack Auth credentials are missing. Users will be created in the public schema instead of neon_auth.</p>
-                            <p className="text-xs mt-2">
-                                To fix this:
-                            </p>
+                            <p className="text-xs mt-2">To fix this:</p>
                             <ol className="text-xs list-decimal list-inside mt-1 space-y-1">
                                 <li>Provision Neon Auth in Neon Console</li>
                                 <li>Add NEXT_PUBLIC_STACK_PROJECT_ID to Netlify</li>
@@ -194,19 +277,24 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
             }
             
             return (
-                <div className="space-y-4">
-                    <SignUp
-                        onSignUpComplete={() => {
-                            // This will be handled by the useEffect watching for user
-                            console.log('✅ Sign up complete via Stack Auth');
-                            console.log('✅ User should be created in neon_auth.users_sync table');
-                        }}
-                        onError={(error) => {
-                            console.error('❌ Stack Auth sign up error:', error);
-                            setError(error.message || 'Failed to create account. Please try again.');
-                        }}
-                    />
-                </div>
+                <form onSubmit={handleSignUp} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1" htmlFor="name">Full Name</label>
+                        <input id="name" type="text" value={name} onChange={e => setName(e.target.value)} className="w-full p-2 bg-slate-900 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500" required />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1" htmlFor="email-signup">Email Address</label>
+                        <input id="email-signup" type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-2 bg-slate-900 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500" required />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1" htmlFor="password-signup">Password</label>
+                        <input id="password-signup" type="password" value={password} onChange={e => setPassword(e.target.value)} minLength={6} className="w-full p-2 bg-slate-900 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500" required />
+                        <p className="text-xs text-slate-400 mt-1">Password must be at least 6 characters</p>
+                    </div>
+                    <button type="submit" disabled={isLoading} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-lg transition-colors disabled:bg-slate-600">
+                        {isLoading ? 'Creating Account...' : 'Create Account'}
+                    </button>
+                </form>
             );
         }
 
@@ -259,12 +347,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
             );
         }
 
-        // Check if Stack Auth is configured
-        const projectId = import.meta.env.NEXT_PUBLIC_STACK_PROJECT_ID || import.meta.env.VITE_STACK_PROJECT_ID || '';
-        const publishableKey = import.meta.env.NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY || import.meta.env.VITE_STACK_PUBLISHABLE_CLIENT_KEY || '';
-        
-        if (!projectId || !publishableKey) {
-            // Stack Auth not configured - show error
+        if (!isStackAuthConfigured) {
             return (
                 <div className="space-y-4">
                     <div className="bg-yellow-900/50 text-yellow-300 text-sm p-4 rounded-lg">
@@ -277,19 +360,17 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
                 </div>
             );
         }
-        
+
         return (
-            <div className="space-y-4">
-                <SignIn
-                    onSignInComplete={() => {
-                        // This will be handled by the useEffect watching for user
-                        console.log('✅ Sign in complete via Stack Auth');
-                    }}
-                    onError={(error) => {
-                        console.error('❌ Stack Auth sign in error:', error);
-                        setError(error.message || 'Failed to sign in. Please try again.');
-                    }}
-                />
+            <form onSubmit={handleSignIn} className="space-y-4">
+                <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1" htmlFor="email-signin">Email Address</label>
+                    <input id="email-signin" type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-2 bg-slate-900 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500" required />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1" htmlFor="password-signin">Password</label>
+                    <input id="password-signin" type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-2 bg-slate-900 border border-slate-600 rounded-lg focus:ring-2 focus:ring-cyan-500" required />
+                </div>
                 <div className="text-right">
                     <button 
                         type="button" 
@@ -302,7 +383,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onAuthSuccess, initialTa
                         Forgot Password?
                     </button>
                 </div>
-            </div>
+                <button type="submit" disabled={isLoading} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-lg transition-colors disabled:bg-slate-600">
+                    {isLoading ? 'Signing In...' : 'Sign In'}
+                </button>
+            </form>
         );
     };
 

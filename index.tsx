@@ -13,8 +13,11 @@ if (!rootElement) {
 const projectId = import.meta.env.NEXT_PUBLIC_STACK_PROJECT_ID || import.meta.env.VITE_STACK_PROJECT_ID || '';
 const publishableClientKey = import.meta.env.NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY || import.meta.env.VITE_STACK_PUBLISHABLE_CLIENT_KEY || '';
 
+// Check if Stack Auth is properly configured
+const isStackAuthConfigured = projectId && publishableClientKey && projectId.trim() !== '' && publishableClientKey.trim() !== '';
+
 // Warn if Stack Auth credentials are missing
-if (!projectId || !publishableClientKey) {
+if (!isStackAuthConfigured) {
   console.warn('⚠️ Stack Auth credentials are missing!');
   console.warn('⚠️ Users will be created in public schema instead of neon_auth schema.');
   console.warn('⚠️ To fix:');
@@ -25,17 +28,29 @@ if (!projectId || !publishableClientKey) {
 }
 
 const root = ReactDOM.createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    {projectId && publishableClientKey ? (
-      <StackProvider projectId={projectId} publishableClientKey={publishableClientKey}>
-        <StackTheme>
-          <App />
-        </StackTheme>
-      </StackProvider>
-    ) : (
-      // Fallback: Render app without Stack Auth (will use localStorage)
+
+// Always render App, but wrap with StackProvider only if configured
+try {
+  root.render(
+    <React.StrictMode>
+      {isStackAuthConfigured ? (
+        <StackProvider projectId={projectId} publishableClientKey={publishableClientKey}>
+          <StackTheme>
+            <App />
+          </StackTheme>
+        </StackProvider>
+      ) : (
+        // Fallback: Render app without Stack Auth (will use localStorage)
+        <App />
+      )}
+    </React.StrictMode>
+  );
+} catch (error) {
+  console.error('❌ Error rendering app:', error);
+  // Fallback: Render app without Stack Auth if there's an error
+  root.render(
+    <React.StrictMode>
       <App />
-    )}
-  </React.StrictMode>
-);
+    </React.StrictMode>
+  );
+}
