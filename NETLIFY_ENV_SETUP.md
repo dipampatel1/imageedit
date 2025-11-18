@@ -9,9 +9,11 @@ These are used by your Netlify Functions to access the Neon database.
 
 | Variable Name | Description | Where to Get It |
 |--------------|-------------|-----------------|
-| `DATABASE_URL` | Your Neon PostgreSQL connection string | Neon Console → Connection Details → Connection String |
+| `NETLIFY_DATABASE_URL` | **Automatically set** when you connect Neon via Netlify Dashboard | ✅ Auto-configured by Netlify |
+| `DATABASE_URL` | Fallback connection string (optional if using Netlify integration) | Neon Console → Connection Details → Connection String |
 
-**⚠️ Important**: This does NOT have the `VITE_` prefix because it's used server-side.
+**✅ Good News**: If you connected Neon database via Netlify Dashboard, `NETLIFY_DATABASE_URL` is automatically set!  
+**⚠️ Note**: `DATABASE_URL` is still supported as a fallback, but `NETLIFY_DATABASE_URL` is preferred.
 
 ### Client-Side Variables (for React app)
 These are used by your React application in the browser.
@@ -38,11 +40,13 @@ These are used by your React application in the browser.
 3. **Add Each Variable**
    Click **"Add a variable"** and add each one:
 
-   **Variable 1: DATABASE_URL (Required)**
-   - Key: `DATABASE_URL`
-   - Value: `postgresql://user:password@host/database?sslmode=require` (your Neon connection string)
-   - Scope: All scopes (or Builds and Functions)
-   - ⚠️ **Important**: Get this from Neon Console → Connection Details
+   **Variable 1: NETLIFY_DATABASE_URL (Auto-set if connected via Dashboard)**
+   - ✅ **Already set** if you connected Neon database via Netlify Dashboard
+   - If not set, you can manually add it:
+     - Key: `NETLIFY_DATABASE_URL`
+     - Value: `postgresql://user:password@host/database?sslmode=require` (your Neon connection string)
+     - Scope: All scopes (or Builds and Functions)
+   - **OR** use `DATABASE_URL` as fallback (same format)
 
    **Variable 2: VITE_GEMINI_API_KEY (Required)**
    - Key: `VITE_GEMINI_API_KEY`
@@ -91,12 +95,16 @@ These are used by your React application in the browser.
 
 After adding variables, verify:
 
-- [ ] `DATABASE_URL` is set (no VITE_ prefix)
+- [ ] `NETLIFY_DATABASE_URL` is set (✅ Auto-set if connected via Dashboard) OR `DATABASE_URL` is set (fallback)
 - [ ] `VITE_GEMINI_API_KEY` is set (with VITE_ prefix)
 - [ ] `VITE_NEON_PROJECT_ID` is set (optional, for admin panel)
 - [ ] All Stripe variables are set (if using payments)
+- [ ] **Neon Auth credentials** are set (if using Neon Auth):
+  - `NEXT_PUBLIC_STACK_PROJECT_ID`
+  - `NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY`
+  - `STACK_SECRET_SERVER_KEY`
 - [ ] Site has been redeployed after adding variables
-- [ ] Check Netlify function logs - should NOT see "DATABASE_URL is not set"
+- [ ] Check Netlify function logs - should NOT see "Database connection not configured"
 
 ## Common Mistakes
 

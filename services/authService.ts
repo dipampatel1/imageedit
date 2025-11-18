@@ -1,220 +1,180 @@
-
 import type { UserProfile } from '../types';
-
-// This service uses localStorage for authentication.
-// In production, you would integrate with Neon Auth (Stack Auth) or another auth provider.
-
-const USERS_DB_KEY = 'imageedit_users';
-const CURRENT_USER_KEY = 'imageedit_currentUser';
-
-// Helper to get all users from localStorage
-const getUsers = () => {
-    const users = localStorage.getItem(USERS_DB_KEY);
-    return users ? JSON.parse(users) : [];
-};
-
-// Helper to save all users to localStorage
-const saveUsers = (users: any[]) => {
-    localStorage.setItem(USERS_DB_KEY, JSON.stringify(users));
-};
-
-// Helper to create a user session (for localStorage fallback only)
-const createSession = (user: any) => {
-    const sessionData = {
-        profile: {
-            name: user.name,
-            email: user.email,
-            imageUrl: `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(user.name)}`,
-        },
-        userId: user.id || user.userId,
-        // Note: isPro/subscription tier should come from user_usage table, not stored here
-    };
-    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(sessionData));
-    return sessionData;
-};
-
+import { useUser, useStackApp } from '@stackframe/stack';
+import { stackServerApp } from '../stack';
 
 /**
- * Registers a new user and automatically signs them in.
- * Note: Subscription tier is stored in user_usage table, not in auth.
- * @throws Will throw an error if the email is already in use.
+ * Neon Auth (Stack Auth) Integration
+ * Users are automatically created in the neon_auth schema when signing up via Stack Auth.
+ * This service provides a wrapper around Stack Auth for backward compatibility.
+ */
+
+/**
+ * Registers a new user via Stack Auth (creates in neon_auth schema).
+ * @throws Will throw an error if the email is already in use or sign-up fails.
  */
 export const signUp = async (name: string, email: string, password: string): Promise<{ profile: UserProfile, userId?: string }> => {
-    // Removed verbose logging to reduce console spam
-    
-    // Use localStorage for authentication
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            const users = getUsers();
-            const existingUser = users.find(u => u.email === email);
+    try {
+        // Use Stack Auth for sign-up (creates user in neon_auth schema)
+        const result = await stackServerApp.signUpWithCredential({
+            email,
+            password,
+            displayName: name,
+        });
 
-            if (existingUser) {
-                return reject(new Error('An account with this email already exists.'));
-            }
+        if (!result.user) {
+            throw new Error('Failed to create user account. Please try again.');
+        }
 
-            const newUser = {
-                id: crypto.randomUUID(),
-                name,
-                email,
-                password: password, // In a real app, this would be hashed.
-                isPro: false,
-                createdAt: new Date().toISOString(),
-            };
-
-            users.push(newUser);
-            saveUsers(users);
-            
-            // Verify password was saved
-            const savedUsers = getUsers();
-            const savedUser = savedUsers.find(u => u.email === email);
-            if (!savedUser || !savedUser.password) {
-                console.error('❌ Password was not saved correctly during sign-up');
-                throw new Error('Failed to save password. Please try again.');
-            }
-
-            const session = createSession(newUser);
-            resolve(session);
-        }, 500);
-    });
+        // Return user profile in expected format
+        return {
+            profile: {
+                name: result.user.displayName || name,
+                email: result.user.primaryEmail || email,
+                imageUrl: result.user.profileImageUrl || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(name)}`,
+            },
+            userId: result.user.id,
+        };
+    } catch (error: any) {
+        console.error('❌ Stack Auth sign-up error:', error);
+        
+        // Handle specific error cases
+        if (error.message?.includes('already exists') || error.message?.includes('already registered')) {
+            throw new Error('An account with this email already exists.');
+        }
+        
+        throw new Error(error.message || 'Failed to create account. Please try again.');
+    }
 };
 
 /**
- * Signs in an existing user.
- * Note: Subscription tier is stored in user_usage table, not in auth.
+ * Signs in an existing user via Stack Auth.
  * @throws Will throw an error for invalid credentials.
  */
 export const signIn = async (email: string, password: string): Promise<{ profile: UserProfile, userId?: string }> => {
-    // Use localStorage for authentication
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            const users = getUsers();
-            const user = users.find(u => u.email === email);
+    try {
+        // Use Stack Auth for sign-in
+        const result = await stackServerApp.signInWithCredential({
+            email,
+            password,
+        });
 
-            if (!user || user.password !== password) {
-                return reject(new Error('Invalid email or password.'));
-            }
-            
-            const session = createSession(user);
-            resolve(session);
-        }, 500);
-    });
+        if (!result.user) {
+            throw new Error('Invalid email or password.');
+        }
+
+        // Return user profile in expected format
+        return {
+            profile: {
+                name: result.user.displayName || '',
+                email: result.user.primaryEmail || email,
+                imageUrl: result.user.profileImageUrl || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(result.user.displayName || email)}`,
+            },
+            userId: result.user.id,
+        };
+    } catch (error: any) {
+        console.error('❌ Stack Auth sign-in error:', error);
+        
+        if (error.message?.includes('Invalid') || error.message?.includes('password') || error.message?.includes('credentials')) {
+            throw new Error('Invalid email or password.');
+        }
+        
+        throw new Error(error.message || 'Failed to sign in. Please try again.');
+    }
 };
 
 /**
- * Signs out the current user.
+ * Signs out the current user via Stack Auth.
  */
 export const signOut = async (): Promise<void> => {
-    // Clear localStorage
-    localStorage.removeItem(CURRENT_USER_KEY);
+    try {
+        await stackServerApp.signOut();
+    } catch (error) {
+        console.error('❌ Stack Auth sign-out error:', error);
+        // Don't throw - sign-out should always succeed
+    }
 };
 
 /**
- * Gets the currently signed-in user.
+ * Gets the currently signed-in user from Stack Auth.
  * Note: Subscription tier is NOT stored in auth - it comes from user_usage table.
  * Use getUserUsage() from usageService to get subscription tier.
  * @returns The user session object or null if not signed in.
  */
 export const getCurrentUser = async (): Promise<{ profile: UserProfile, userId?: string } | null> => {
-    // Use localStorage
-    const session = localStorage.getItem(CURRENT_USER_KEY);
-    if (session) {
-        const parsed = JSON.parse(session);
-        // Remove isPro from session - it should come from database
+    try {
+        const user = await stackServerApp.getUser();
+        
+        if (!user) {
+            return null;
+        }
+
         return {
-            profile: parsed.profile,
-            userId: parsed.userId,
+            profile: {
+                name: user.displayName || '',
+                email: user.primaryEmail || '',
+                imageUrl: user.profileImageUrl || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(user.displayName || user.primaryEmail || '')}`,
+            },
+            userId: user.id,
         };
+    } catch (error) {
+        console.error('❌ Error getting user from Stack Auth:', error);
+        return null;
     }
-    return null;
 };
 
 /**
- * Resets a user's password (for localStorage fallback only).
- * In production, this would send an email with a reset link.
+ * Resets a user's password via Stack Auth.
  * @param email The user's email address
  * @param newPassword The new password to set
- * @throws Will throw an error if the user is not found.
+ * @throws Will throw an error if the user is not found or reset fails.
  */
 export const resetPassword = async (email: string, newPassword: string): Promise<void> => {
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            try {
-                console.log('🔵 resetPassword: Resetting password for:', email);
-                const users = getUsers();
-                console.log('🔵 resetPassword: Total users:', users.length);
-                const userIndex = users.findIndex(u => u.email && u.email.toLowerCase() === email.toLowerCase());
-                console.log('🔵 resetPassword: User index:', userIndex);
+    try {
+        // First, sign in to verify the user exists
+        const user = await stackServerApp.getUserByEmail(email);
+        
+        if (!user) {
+            throw new Error('No account found with this email address.');
+        }
 
-                if (userIndex === -1) {
-                    console.error('❌ resetPassword: User not found');
-                    return reject(new Error('No account found with this email address.'));
-                }
-
-                // Update the password
-                users[userIndex].password = newPassword; // In a real app, this would be hashed.
-                saveUsers(users);
-
-                // Verify password was saved
-                const savedUsers = getUsers();
-                const savedUser = savedUsers.find(u => u.email && u.email.toLowerCase() === email.toLowerCase());
-                if (!savedUser || !savedUser.password) {
-                    console.error('❌ resetPassword: Password was not saved correctly');
-                    return reject(new Error('Failed to save new password. Please try again.'));
-                }
-
-                console.log('✅ resetPassword: Password reset successful');
-                resolve();
-            } catch (error) {
-                console.error('❌ resetPassword: Error:', error);
-                reject(error instanceof Error ? error : new Error('Failed to reset password'));
-            }
-        }, 500);
-    });
+        // Update password via Stack Auth
+        await stackServerApp.updateUserPassword(user.id, newPassword);
+    } catch (error: any) {
+        console.error('❌ Stack Auth password reset error:', error);
+        
+        if (error.message?.includes('not found') || error.message?.includes('No account')) {
+            throw new Error('No account found with this email address.');
+        }
+        
+        throw new Error(error.message || 'Failed to reset password. Please try again.');
+    }
 };
 
 /**
- * Checks if an email exists in the system (for password reset).
- * Checks both localStorage and Neon database.
+ * Checks if an email exists in Stack Auth (neon_auth schema).
  * @param email The email to check
  * @returns true if the email exists, false otherwise
  */
 export const emailExists = async (email: string): Promise<boolean> => {
-    // First check localStorage
     try {
-        const users = getUsers();
-        console.log('🔵 emailExists: Checking email:', email);
-        console.log('🔵 emailExists: Total users in localStorage:', users.length);
-        console.log('🔵 emailExists: User emails:', users.map(u => u.email));
-        const existsInLocalStorage = users.some(u => u.email && u.email.toLowerCase() === email.toLowerCase());
-        
-        if (existsInLocalStorage) {
-            console.log('🔵 emailExists: Found in localStorage');
-            return true;
-        }
+        // Check Stack Auth for email
+        const user = await stackServerApp.getUserByEmail(email);
+        return !!user;
     } catch (error) {
-        console.error('❌ Error checking localStorage:', error);
-    }
-
-    // If not found in localStorage, check Neon database
-    try {
-        const FUNCTIONS_URL = import.meta.env.VITE_NETLIFY_FUNCTIONS_URL || '/.netlify/functions';
-        const url = `${FUNCTIONS_URL}/email-check?email=${encodeURIComponent(email)}`;
-        
-        console.log('🔵 emailExists: Checking Neon database:', url);
-        const response = await fetch(url);
-        
-        if (response.ok) {
-            const result = await response.json();
-            console.log('🔵 emailExists: Database check result:', result);
-            return result.exists === true;
-        } else {
-            console.warn('⚠️ emailExists: Database check failed:', response.status);
-            // If database check fails, return false (safer for password reset)
-            return false;
+        console.error('❌ Error checking email in Stack Auth:', error);
+        // If check fails, also check Neon database user_usage table as fallback
+        try {
+            const FUNCTIONS_URL = import.meta.env.VITE_NETLIFY_FUNCTIONS_URL || '/.netlify/functions';
+            const url = `${FUNCTIONS_URL}/email-check?email=${encodeURIComponent(email)}`;
+            const response = await fetch(url);
+            
+            if (response.ok) {
+                const result = await response.json();
+                return result.exists === true;
+            }
+        } catch (dbError) {
+            console.error('❌ Error checking database:', dbError);
         }
-    } catch (error) {
-        console.error('❌ Error checking database:', error);
-        // If database check fails, return false (safer for password reset)
         return false;
     }
 };

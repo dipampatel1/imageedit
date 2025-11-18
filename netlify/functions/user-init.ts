@@ -1,16 +1,18 @@
-import { neon } from '@neondatabase/serverless';
+import { neon } from '@netlify/neon';
 import type { Handler } from '@netlify/functions';
 
 // Initialize Neon database client
+// @netlify/neon automatically uses NETLIFY_DATABASE_URL environment variable
+// Falls back to DATABASE_URL for backward compatibility
 const getNeonClient = () => {
-  const databaseUrl = process.env.DATABASE_URL;
-  
-  if (!databaseUrl) {
-    console.error('DATABASE_URL is not set in environment variables');
+  // @netlify/neon automatically uses NETLIFY_DATABASE_URL
+  // If not set, it will use DATABASE_URL as fallback
+  try {
+    return neon(); // Automatically uses NETLIFY_DATABASE_URL or DATABASE_URL
+  } catch (error) {
+    console.error('Failed to initialize Neon client:', error);
     return null;
   }
-  
-  return neon(databaseUrl);
 };
 
 /**
@@ -62,17 +64,32 @@ export const handler: Handler = async (event) => {
       };
     }
     
+    // IMPORTANT: Check if this is a Stack Auth user ID (should start with specific pattern)
+    // If userId looks like a localStorage UUID (not from Stack Auth), warn but allow
+    // Stack Auth user IDs typically have a specific format
+    const isStackAuthUserId = userId.length > 20 && !userId.includes('-'); // Stack Auth IDs are usually longer and don't have dashes
+    const isLocalStorageUserId = userId.includes('-') && userId.length === 36; // UUID format
+    
+    if (isLocalStorageUserId) {
+      console.warn('⚠️ WARNING: User ID appears to be from localStorage (not Stack Auth)');
+      console.warn('⚠️ This user will be created in public.user_usage, not neon_auth.users_sync');
+      console.warn('⚠️ Stack Auth is likely not configured. Please provision Neon Auth.');
+      console.warn('⚠️ See PROVISION_NEON_AUTH.md for setup instructions.');
+    } else {
+      console.log('✅ User ID appears to be from Stack Auth (neon_auth schema)');
+    }
+    
     // Check Neon configuration
     const sql = getNeonClient();
     if (!sql) {
-      console.error('Neon client not available - DATABASE_URL is missing');
+      console.error('Neon client not available - NETLIFY_DATABASE_URL or DATABASE_URL is missing');
       return {
         statusCode: 500,
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ error: 'Database connection not configured. Check DATABASE_URL.' }),
+        body: JSON.stringify({ error: 'Database connection not configured. Check NETLIFY_DATABASE_URL or DATABASE_URL.' }),
       };
     }
     

@@ -1,16 +1,16 @@
-import { neon } from '@neondatabase/serverless';
+import { neon } from '@netlify/neon';
 import type { Handler } from '@netlify/functions';
 
 // Initialize Neon database client
+// @netlify/neon automatically uses NETLIFY_DATABASE_URL environment variable
+// Falls back to DATABASE_URL for backward compatibility
 const getNeonClient = () => {
-  const databaseUrl = process.env.DATABASE_URL;
-  
-  if (!databaseUrl) {
-    console.error('DATABASE_URL is not set in environment variables');
+  try {
+    return neon(); // Automatically uses NETLIFY_DATABASE_URL or DATABASE_URL
+  } catch (error) {
+    console.error('Failed to initialize Neon client:', error);
     return null;
   }
-  
-  return neon(databaseUrl);
 };
 
 // Tier limits (updated to competitive pricing model)
