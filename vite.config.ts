@@ -30,10 +30,14 @@ export default defineConfig(({ mode }) => {
         'import.meta.env.VITE_STRIPE_BUSINESS_MONTHLY_PRICE_ID': JSON.stringify(env.VITE_STRIPE_BUSINESS_MONTHLY_PRICE_ID || env.STRIPE_BUSINESS_MONTHLY_PRICE_ID || ''),
         'import.meta.env.VITE_STRIPE_BUSINESS_ANNUAL_PRICE_ID': JSON.stringify(env.VITE_STRIPE_BUSINESS_ANNUAL_PRICE_ID || env.STRIPE_BUSINESS_ANNUAL_PRICE_ID || ''),
         // Stack Auth (Neon Auth) environment variables
+        // Support both NEXT_PUBLIC_ (Next.js convention) and VITE_ (Vite convention) prefixes
         'import.meta.env.NEXT_PUBLIC_STACK_PROJECT_ID': JSON.stringify(env.NEXT_PUBLIC_STACK_PROJECT_ID || env.VITE_STACK_PROJECT_ID || ''),
         'import.meta.env.NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY': JSON.stringify(env.NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY || env.VITE_STACK_PUBLISHABLE_CLIENT_KEY || ''),
         'import.meta.env.VITE_STACK_PROJECT_ID': JSON.stringify(env.NEXT_PUBLIC_STACK_PROJECT_ID || env.VITE_STACK_PROJECT_ID || ''),
         'import.meta.env.VITE_STACK_PUBLISHABLE_CLIENT_KEY': JSON.stringify(env.NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY || env.VITE_STACK_PUBLISHABLE_CLIENT_KEY || ''),
+        // Also expose as process.env for compatibility
+        'process.env.NEXT_PUBLIC_STACK_PROJECT_ID': JSON.stringify(env.NEXT_PUBLIC_STACK_PROJECT_ID || env.VITE_STACK_PROJECT_ID || ''),
+        'process.env.NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY': JSON.stringify(env.NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY || env.VITE_STACK_PUBLISHABLE_CLIENT_KEY || ''),
       },
       resolve: {
         alias: {
